@@ -4,12 +4,20 @@ import Footer from "../components/Footer.astro";
 import "../styles/global.css";
 ---
 
-<html lang="en">
+<html lang="en" class="dark">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width" />
         <title>Colin Veron</title>
     </head>
+
+    <script>
+        const theme = localStorage.getItem("theme");
+
+        if (theme === "light") {
+            document.documentElement.classList.add("light");
+        }
+    </script>
 
     <body>
         <Header />

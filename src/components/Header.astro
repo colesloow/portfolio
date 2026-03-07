@@ -1,3 +1,7 @@
+---
+import ThemeToggle from "./ThemeToggle.astro";
+---
+
 <header class="header">
     <div class="container nav">
         <a class="logo" href="/">Colin Veron</a>
@@ -6,6 +10,7 @@
             <a href="/projects">Projects</a>
             <a href="/blog">Blog</a>
             <a href="/about">About</a>
+            <ThemeToggle />
         </div>
     </div>
 </header>
@@ -28,6 +33,7 @@
 
     .nav-links {
         display: flex;
-        gap: 24px;
+        align-items: center;
+        gap: 20px;
     }
 </style>

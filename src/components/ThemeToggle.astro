@@ -1,0 +1,47 @@
+<button id="theme-toggle" class="theme-toggle"> ☀︎ / ☾ </button>
+
+<script>
+    const button = document.getElementById("theme-toggle");
+
+    if (button) {
+        button.addEventListener("click", () => {
+            const root = document.documentElement;
+
+            if (root.classList.contains("light")) {
+                root.classList.remove("light");
+                localStorage.setItem("theme", "dark");
+            } else {
+                root.classList.add("light");
+                localStorage.setItem("theme", "light");
+            }
+        });
+    }
+</script>
+
+<style>
+    .theme-toggle {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+
+        padding: 6px 10px;
+        border-radius: 6px;
+
+        cursor: pointer;
+
+        font-size: 0.9rem;
+
+        transition:
+            background 0.2s ease,
+            transform 0.1s ease;
+    }
+
+    .theme-toggle:hover {
+        background: var(--accent);
+        color: white;
+    }
+
+    .theme-toggle:active {
+        transform: scale(0.95);
+    }
+</style>
