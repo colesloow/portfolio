@@ -16,11 +16,83 @@ const { Content } = await project.render();
 ---
 
 <BaseLayout>
-    <h1>{project.data.title}</h1>
+    <section class="project-cover">
+        <img src={project.data.thumbnail} alt={project.data.title} />
+    </section>
 
-    <p>{project.data.description}</p>
+    <section class="project-header">
+        <h1>{project.data.title}</h1>
 
-    <article>
+        <p class="project-description">
+            {project.data.description}
+        </p>
+    </section>
+
+    {
+        project.data.tags && (
+            <ul class="project-tags">
+                {project.data.tags.map((tag) => (
+                    <li>{tag}</li>
+                ))}
+            </ul>
+        )
+    }
+
+    {
+        project.data.links && (
+            <div class="project-links">
+                {project.data.links.github && <a href={project.data.links.github}>GitHub</a>}
+
+                {project.data.links.demo && <a href={project.data.links.demo}>Demo</a>}
+            </div>
+        )
+    }
+
+    <article class="project-content">
         <Content />
     </article>
 </BaseLayout>
+
+<style>
+    .project-cover {
+        margin-top: 40px;
+        margin-bottom: 40px;
+
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+    }
+
+    .project-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .project-header h1 {
+        margin-bottom: 10px;
+    }
+
+    .project-description {
+        color: var(--text-muted);
+    }
+
+    .project-tags {
+        display: flex;
+        gap: 10px;
+        margin: 20px 0;
+        list-style: none;
+        padding: 0;
+    }
+
+    .project-tags li {
+        background: var(--surface);
+        padding: 6px 10px;
+        border-radius: 6px;
+    }
+
+    .project-links {
+        display: flex;
+        gap: 20px;
+        margin: 20px 0 40px 0;
+    }
+</style>

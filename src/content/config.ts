@@ -13,7 +13,11 @@ const projects = defineCollection({
         title: z.string(),
         description: z.string(),
         date: z.date(),
-        thumbnail: z.string().optional(),
+
+        thumbnail: z.string(),
+
+        tags: z.array(z.string()).optional(),
+
         links: z
             .object({
                 github: z.string().url().optional(),
