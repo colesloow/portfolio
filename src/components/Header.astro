@@ -1,24 +1,29 @@
-<header class="container header">
-    <nav>
-        <a href="/">Colin Veron</a>
+<header class="header">
+    <div class="container nav">
+        <a class="logo" href="/">Colin Veron</a>
 
         <div class="nav-links">
             <a href="/projects">Projects</a>
             <a href="/blog">Blog</a>
             <a href="/about">About</a>
         </div>
-    </nav>
+    </div>
 </header>
 
 <style>
     .header {
-        padding: 24px 0;
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        border-bottom: 1px solid #2a2f3a;
+        z-index: 1000;
     }
 
-    nav {
+    .nav {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        padding: 16px 0;
     }
 
     .nav-links {

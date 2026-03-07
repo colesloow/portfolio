@@ -8,13 +8,31 @@ const projects = await getCollection("projects");
 <BaseLayout>
     <h1>Projects</h1>
 
-    <ul>
+    <div class="masonry">
         {
             projects.map((project) => (
-                <li>
-                    <a href={`/projects/${project.slug}`}>{project.data.title}</a>
-                </li>
+                <article class="project-card">
+                    <a href={`/projects/${project.slug}`}>
+                        <h2>{project.data.title}</h2>
+                        <p>{project.data.description}</p>
+                    </a>
+                </article>
             ))
         }
-    </ul>
+    </div>
 </BaseLayout>
+
+<style>
+    .masonry {
+        columns: 3;
+        column-gap: 24px;
+    }
+
+    .project-card {
+        break-inside: avoid;
+        background: var(--surface);
+        padding: 20px;
+        margin-bottom: 24px;
+        border-radius: 8px;
+    }
+</style>

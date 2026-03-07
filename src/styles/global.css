@@ -47,3 +47,17 @@ a {
 a:hover {
     text-decoration: underline;
 }
+
+/* Responsive */
+
+@media (max-width: 900px) {
+    .masonry {
+        columns: 2;
+    }
+}
+
+@media (max-width: 600px) {
+    .masonry {
+        columns: 1;
+    }
+}
