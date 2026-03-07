@@ -1,0 +1,28 @@
+---
+const { project } = Astro.props;
+---
+
+<article class="project-card">
+    <a href={`/projects/${project.slug}`}>
+        <h2>{project.data.title}</h2>
+        <p>{project.data.description}</p>
+    </a>
+</article>
+
+<style>
+    .project-card {
+        break-inside: avoid;
+        background: var(--surface);
+        padding: 20px;
+        margin-bottom: 24px;
+        border-radius: 8px;
+    }
+
+    .project-card h2 {
+        margin: 0 0 8px 0;
+    }
+
+    .project-card p {
+        color: var(--text-muted);
+    }
+</style>

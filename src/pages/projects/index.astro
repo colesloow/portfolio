@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProjectCard from "../../components/ProjectCard.astro";
 import { getCollection } from "astro:content";
 
 const projects = await getCollection("projects");
@@ -9,16 +10,7 @@ const projects = await getCollection("projects");
     <h1>Projects</h1>
 
     <div class="masonry">
-        {
-            projects.map((project) => (
-                <article class="project-card">
-                    <a href={`/projects/${project.slug}`}>
-                        <h2>{project.data.title}</h2>
-                        <p>{project.data.description}</p>
-                    </a>
-                </article>
-            ))
-        }
+        {projects.map((project) => <ProjectCard project={project} />)}
     </div>
 </BaseLayout>
 
@@ -26,13 +18,5 @@ const projects = await getCollection("projects");
     .masonry {
         columns: 3;
         column-gap: 24px;
-    }
-
-    .project-card {
-        break-inside: avoid;
-        background: var(--surface);
-        padding: 20px;
-        margin-bottom: 24px;
-        border-radius: 8px;
     }
 </style>

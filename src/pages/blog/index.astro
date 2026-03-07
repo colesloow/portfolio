@@ -1,24 +1,15 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import ArticlePreview from "../../components/ArticlePreview.astro";
 import { getCollection } from "astro:content";
 
 const articles = await getCollection("blog");
 
-// tri du plus récent au plus ancien
 articles.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
 
 <BaseLayout>
     <h1>Blog</h1>
 
-    <ul>
-        {
-            articles.map((article) => (
-                <li>
-                    <a href={`/blog/${article.slug}`}>{article.data.title}</a>
-                    <p>{article.data.summary}</p>
-                </li>
-            ))
-        }
-    </ul>
+    {articles.map((article) => <ArticlePreview article={article} />)}
 </BaseLayout>
