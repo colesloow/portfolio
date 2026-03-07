@@ -1,0 +1,23 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/global.css";
+---
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <title>Colin Veron</title>
+    </head>
+
+    <body>
+        <Header />
+
+        <main class="container">
+            <slot />
+        </main>
+
+        <Footer />
+    </body>
+</html>

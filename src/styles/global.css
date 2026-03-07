@@ -1,0 +1,49 @@
+/* Reset simple */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    line-height: 1.6;
+}
+
+/* Theme variables */
+
+:root {
+    --bg: #0f1115;
+    --surface: #161a21;
+    --text: #e6e8eb;
+    --text-muted: #9aa3ad;
+    --accent: #22d3ee;
+
+    --max-width: 1100px;
+}
+
+/* Layout container */
+
+.container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Basic elements */
+
+body {
+    background: var(--bg);
+    color: var(--text);
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
