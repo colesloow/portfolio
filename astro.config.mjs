@@ -5,13 +5,13 @@ import mdx from "@astrojs/mdx";
 
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import remarkShader from "./src/remark/remarkShader.js";
 
-// https://astro.build/config
 export default defineConfig({
     integrations: [mdx()],
 
     markdown: {
-        remarkPlugins: [remarkMath],
+        remarkPlugins: [remarkMath, remarkShader],
         rehypePlugins: [rehypeKatex],
     },
 });
