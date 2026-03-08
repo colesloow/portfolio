@@ -2,7 +2,7 @@ import { EditorView, basicSetup } from "https://esm.sh/codemirror";
 import { EditorState, Compartment } from "https://esm.sh/@codemirror/state";
 import { cpp } from "https://esm.sh/@codemirror/lang-cpp";
 
-import { getThemeExtensions } from "./editorThemes.js";
+import { getThemeExtensions } from "../editorThemes.js";
 import { createShaderRuntime } from "./shaderRuntime.js";
 
 export function initShaderPlayground({ canvasId, editorId, errorId, resetId, code }) {

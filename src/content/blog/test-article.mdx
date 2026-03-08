@@ -5,6 +5,7 @@ date: 2026-01-01
 ---
 
 import ShaderPlayground from "../../components/ShaderPlayground.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
 
 # Live shader
 
@@ -26,3 +27,27 @@ gl_FragColor = vec4(col,1.0);
 
 }
 ```
+
+## Exemple Python
+
+<CodeBlock
+lang="python"
+code={`
+import math
+
+def noise(x):
+return math.sin(x) _ 0.5 + math.sin(2 _ x) \* 0.25
+`}
+/>
+
+## Exemple C#
+
+<CodeBlock
+    lang="csharp"
+    code={`
+public class Player
+{
+    public float speed = 5.0f;
+}
+`}
+/>

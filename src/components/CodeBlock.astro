@@ -1,0 +1,73 @@
+---
+const { code, lang = "text" } = Astro.props;
+
+const id = `code-${Math.random().toString(36).slice(2)}`;
+---
+
+<div class="code-block">
+    <div id={id}></div>
+</div>
+
+<script type="module" define:vars={{ id, code, lang }}>
+    import { EditorView, basicSetup } from "https://esm.sh/codemirror";
+    import { EditorState, Compartment } from "https://esm.sh/@codemirror/state";
+    import { cpp } from "https://esm.sh/@codemirror/lang-cpp";
+    import { python } from "https://esm.sh/@codemirror/lang-python";
+    import { javascript } from "https://esm.sh/@codemirror/lang-javascript";
+    import { getThemeExtensions } from "/src/scripts/editorThemes.js";
+
+    /* theme compartment */
+
+    const themeCompartment = new Compartment();
+
+    /* language selection */
+
+    function getLanguage() {
+        switch (lang) {
+            case "python":
+                return python();
+
+            case "javascript":
+            case "js":
+                return javascript();
+
+            case "cpp":
+            case "c++":
+            case "csharp":
+                return cpp();
+
+            default:
+                return [];
+        }
+    }
+
+    /* create editor */
+
+    const editor = new EditorView({
+        state: EditorState.create({
+            doc: code,
+            extensions: [
+                basicSetup,
+                getLanguage(),
+
+                EditorView.editable.of(false),
+
+                themeCompartment.of(getThemeExtensions()),
+            ],
+        }),
+        parent: document.getElementById(id),
+    });
+
+    /* observe theme toggle */
+
+    const observer = new MutationObserver(() => {
+        editor.dispatch({
+            effects: themeCompartment.reconfigure(getThemeExtensions()),
+        });
+    });
+
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+    });
+</script>
