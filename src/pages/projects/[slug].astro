@@ -29,6 +29,24 @@ const { Content } = await project.render();
     </section>
 
     {
+        project.data.gallery && (
+            <section class="project-gallery">
+                {project.data.gallery.map((img) => (
+                    <img src={img} alt={project.data.title} class="gallery-img" />
+                ))}
+            </section>
+        )
+    }
+
+    <div id="lightbox" class="lightbox">
+        <button class="lightbox-prev" id="lightbox-prev">‹</button>
+
+        <img id="lightbox-img" />
+
+        <button class="lightbox-next" id="lightbox-next">›</button>
+    </div>
+
+    {
         project.data.tags && (
             <ul class="project-tags">
                 {project.data.tags.map((tag) => (
@@ -60,6 +78,8 @@ const { Content } = await project.render();
 
         aspect-ratio: 16 / 9;
         overflow: hidden;
+
+        border-radius: 10px;
     }
 
     .project-cover img {
@@ -95,4 +115,147 @@ const { Content } = await project.render();
         gap: 20px;
         margin: 20px 0 40px 0;
     }
+    .project-gallery {
+        margin: 40px 0;
+
+        columns: 3;
+        column-gap: 16px;
+    }
+
+    .project-gallery img {
+        width: 100%;
+        margin-bottom: 16px;
+
+        border-radius: 8px;
+
+        cursor: zoom-in;
+        display: block;
+    }
+
+    .lightbox {
+        position: fixed;
+        inset: 0;
+
+        background: rgba(0, 0, 0, 0.9);
+
+        display: none;
+        align-items: center;
+        justify-content: center;
+
+        z-index: 2000;
+    }
+
+    .lightbox img {
+        max-width: 90vw;
+        max-height: 90vh;
+    }
+
+    .lightbox button {
+        position: absolute;
+
+        top: 50%;
+        transform: translateY(-50%);
+
+        background: rgba(0, 0, 0, 0.4);
+        border: none;
+
+        color: white;
+
+        font-size: 40px;
+        padding: 10px 16px;
+
+        cursor: pointer;
+
+        border-radius: 6px;
+    }
+
+    .lightbox-prev {
+        left: 40px;
+    }
+
+    .lightbox-next {
+        right: 40px;
+    }
+
+    .lightbox button:hover {
+        background: rgba(0, 0, 0, 0.7);
+    }
+
+    @media (max-width: 900px) {
+        .project-gallery {
+            columns: 2;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .project-gallery {
+            columns: 1;
+        }
+    }
 </style>
+
+<script>
+    const images = Array.from(document.querySelectorAll<HTMLImageElement>(".gallery-img"));
+
+    const lightbox = document.getElementById("lightbox");
+    const lightboxImg = document.getElementById("lightbox-img") as HTMLImageElement | null;
+
+    const prevBtn = document.getElementById("lightbox-prev");
+    const nextBtn = document.getElementById("lightbox-next");
+
+    let currentIndex = 0;
+
+    function showImage(index: number) {
+        if (!lightboxImg) return;
+
+        currentIndex = index;
+
+        const img = images[index];
+        lightboxImg.src = img.src;
+    }
+
+    if (lightbox && lightboxImg && prevBtn && nextBtn) {
+        images.forEach((img, index) => {
+            img.addEventListener("click", () => {
+                lightbox.style.display = "flex";
+                showImage(index);
+            });
+        });
+
+        prevBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            const newIndex = (currentIndex - 1 + images.length) % images.length;
+            showImage(newIndex);
+        });
+
+        nextBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+
+            const newIndex = (currentIndex + 1) % images.length;
+            showImage(newIndex);
+        });
+
+        lightbox.addEventListener("click", () => {
+            lightbox.style.display = "none";
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (lightbox.style.display !== "flex") return;
+
+            if (e.key === "ArrowRight") {
+                const newIndex = (currentIndex + 1) % images.length;
+                showImage(newIndex);
+            }
+
+            if (e.key === "ArrowLeft") {
+                const newIndex = (currentIndex - 1 + images.length) % images.length;
+                showImage(newIndex);
+            }
+
+            if (e.key === "Escape") {
+                lightbox.style.display = "none";
+            }
+        });
+    }
+</script>

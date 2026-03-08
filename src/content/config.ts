@@ -13,9 +13,7 @@ const projects = defineCollection({
         title: z.string(),
         description: z.string(),
         date: z.date(),
-
         thumbnail: z.string(),
-
         tags: z.array(z.string()).optional(),
 
         links: z
@@ -26,6 +24,8 @@ const projects = defineCollection({
                 itch: z.string().url().optional(),
             })
             .optional(),
+
+        gallery: z.array(z.string()).optional(),
     }),
 });
 
