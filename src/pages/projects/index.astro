@@ -7,11 +7,13 @@ const projects = await getCollection("projects");
 ---
 
 <BaseLayout>
-    <h1>Projects</h1>
+    <main class="container">
+        <h1>Projects</h1>
 
-    <div class="masonry">
-        {projects.map((project) => <ProjectCard project={project} />)}
-    </div>
+        <div class="masonry">
+            {projects.map((project) => <ProjectCard project={project} />)}
+        </div>
+    </main>
 </BaseLayout>
 
 <style>

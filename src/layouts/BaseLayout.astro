@@ -4,28 +4,28 @@ import Footer from "../components/Footer.astro";
 import "../styles/global.css";
 ---
 
-<html lang="en" class="dark">
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width" />
+
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+
         <title>Colin Veron</title>
+
+        <script>
+            const theme = localStorage.getItem("theme");
+
+            if (theme) {
+                document.documentElement.classList.toggle("light", theme === "light");
+            }
+        </script>
     </head>
-
-    <script>
-        const theme = localStorage.getItem("theme");
-
-        if (theme === "light") {
-            document.documentElement.classList.add("light");
-        }
-    </script>
 
     <body>
         <Header />
 
-        <main class="container">
-            <slot />
-        </main>
+        <slot />
 
         <Footer />
     </body>

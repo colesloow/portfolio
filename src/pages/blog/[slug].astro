@@ -16,11 +16,15 @@ const { Content } = await article.render();
 ---
 
 <BaseLayout>
-    <h1>{article.data.title}</h1>
+    <article class="article-content">
+        <header class="article-header">
+            <h1>{article.data.title}</h1>
 
-    <p>{article.data.date.toDateString()}</p>
+            <p class="article-meta">
+                {article.data.date.toDateString()}
+            </p>
+        </header>
 
-    <article class="project-content">
         <Content />
     </article>
 </BaseLayout>

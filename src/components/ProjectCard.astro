@@ -22,9 +22,11 @@ const { project } = Astro.props;
 <style>
     .project-card {
         break-inside: avoid;
+
         background: var(--surface);
         padding: 20px;
         margin-bottom: 24px;
+
         border-radius: 8px;
 
         transition:
@@ -37,15 +39,22 @@ const { project } = Astro.props;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     }
 
+    .project-card a {
+        display: block;
+        color: inherit;
+    }
+
     .thumbnail {
         aspect-ratio: 16 / 9;
         overflow: hidden;
+        border-radius: 6px;
     }
 
     .thumbnail img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+
         transition: transform 0.35s ease;
     }
 

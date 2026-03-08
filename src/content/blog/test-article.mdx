@@ -2,12 +2,46 @@
 title: Shader Test
 summary: Testing live GLSL shader
 date: 2026-01-01
+tags: [shader, glsl, graphics]
+readingTime: 4
 ---
 
 import ShaderPlayground from "../../components/ShaderPlayground.astro";
 import CodeBlock from "../../components/CodeBlock.astro";
 
-# Live shader
+# Building a simple animated shader
+
+Dans cet article nous allons construire un **fragment shader simple** permettant de générer une animation colorée.  
+L’objectif est d’illustrer quelques bases du shading temps réel tout en testant l’intégration du code interactif dans le blog.
+
+Les shaders sont très utilisés dans :
+
+- le rendu temps réel
+- les effets visuels
+- les outils de génération procédurale
+- les interfaces interactives
+
+Le shader présenté ici repose uniquement sur des fonctions trigonométriques simples.
+
+---
+
+## Principe général
+
+L’idée est de générer une couleur dépendant :
+
+- du **temps**
+- de la **position du pixel**
+- d’une **fonction sinusoïdale**
+
+On commence par normaliser les coordonnées du pixel.
+
+`uv = gl_FragCoord.xy / u_resolution`
+
+Cette opération permet d’obtenir des coordonnées comprises entre `0` et `1`.
+
+---
+
+## Live shader
 
 ```glsl live
 #ifdef GL_ES
@@ -17,37 +51,12 @@ precision mediump float;
 uniform vec2 u_resolution;
 uniform float u_time;
 
-void main(){
+void main()
+{
+    vec2 uv = gl_FragCoord.xy / u_resolution;
 
-vec2 uv = gl_FragCoord.xy / u_resolution;
+    vec3 col = 0.5 + 0.5 * sin(u_time + uv.xyx + vec3(0.0,2.0,4.0));
 
-vec3 col = 0.5 + 0.5 * sin(u_time + uv.xyx + vec3(0.0,2.0,4.0));
-
-gl_FragColor = vec4(col,1.0);
-
+    gl_FragColor = vec4(col,1.0);
 }
 ```
-
-## Exemple Python
-
-<CodeBlock
-lang="python"
-code={`
-import math
-
-def noise(x):
-return math.sin(x) _ 0.5 + math.sin(2 _ x) \* 0.25
-`}
-/>
-
-## Exemple C#
-
-<CodeBlock
-    lang="csharp"
-    code={`
-public class Player
-{
-    public float speed = 5.0f;
-}
-`}
-/>

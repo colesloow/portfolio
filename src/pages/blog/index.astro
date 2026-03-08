@@ -9,7 +9,11 @@ articles.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
 
 <BaseLayout>
-    <h1>Blog</h1>
+    <main class="container">
+        <h1>Blog</h1>
 
-    {articles.map((article) => <ArticlePreview article={article} />)}
+        <div class="article-list">
+            {articles.map((article) => <ArticlePreview article={article} />)}
+        </div>
+    </main>
 </BaseLayout>
