@@ -21,4 +21,16 @@ const projects = await getCollection("projects");
         columns: 3;
         column-gap: 24px;
     }
+
+    @media (max-width: 900px) {
+        .masonry {
+            columns: 2;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .masonry {
+            columns: 1;
+        }
+    }
 </style>

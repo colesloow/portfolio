@@ -16,59 +16,69 @@ const { Content } = await project.render();
 ---
 
 <BaseLayout>
-    <section class="project-cover">
-        <img src={project.data.thumbnail} alt={project.data.title} />
-    </section>
+    <main class="container">
+        <section class="project-cover">
+            <img src={project.data.thumbnail} alt={project.data.title} />
+        </section>
 
-    <section class="project-header">
-        <h1>{project.data.title}</h1>
+        <section class="project-header">
+            <h1>{project.data.title}</h1>
 
-        <p class="project-description">
-            {project.data.description}
-        </p>
-    </section>
+            <p class="project-description">
+                {project.data.description}
+            </p>
+        </section>
 
-    {
-        project.data.gallery && (
-            <section class="project-gallery">
-                {project.data.gallery.map((img) => (
-                    <img src={img} alt={project.data.title} class="gallery-img" />
-                ))}
-            </section>
-        )
-    }
+        {
+            project.data.gallery && (
+                <section class="project-gallery">
+                    {project.data.gallery.map((img) => (
+                        <img src={img} alt={project.data.title} class="gallery-img" />
+                    ))}
+                </section>
+            )
+        }
 
-    <div id="lightbox" class="lightbox">
-        <button class="lightbox-prev" id="lightbox-prev">‹</button>
+        <div id="lightbox" class="lightbox">
+            <button class="lightbox-prev" id="lightbox-prev">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </button>
 
-        <img id="lightbox-img" />
+            <img id="lightbox-img" />
 
-        <button class="lightbox-next" id="lightbox-next">›</button>
-    </div>
+            <button class="lightbox-next" id="lightbox-next">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+        </div>
 
-    {
-        project.data.tags && (
-            <ul class="project-tags">
-                {project.data.tags.map((tag) => (
-                    <li>{tag}</li>
-                ))}
-            </ul>
-        )
-    }
+        {
+            project.data.tags && (
+                <ul class="project-tags">
+                    {project.data.tags.map((tag) => (
+                        <li>{tag}</li>
+                    ))}
+                </ul>
+            )
+        }
 
-    {
-        project.data.links && (
-            <div class="project-links">
-                {project.data.links.github && <a href={project.data.links.github}>GitHub</a>}
+        {
+            project.data.links && (
+                <div class="project-links">
+                    {project.data.links.github && <a href={project.data.links.github}>GitHub</a>}
 
-                {project.data.links.demo && <a href={project.data.links.demo}>Demo</a>}
-            </div>
-        )
-    }
+                    {project.data.links.demo && <a href={project.data.links.demo}>Demo</a>}
+                </div>
+            )
+        }
 
-    <article class="project-content">
-        <Content />
-    </article>
+        <article class="project-content">
+            <Content />
+        </article>
+    </main>
 </BaseLayout>
 
 <style>
@@ -161,8 +171,12 @@ const { Content } = await project.render();
 
         color: white;
 
-        font-size: 40px;
         padding: 10px 16px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
 
         cursor: pointer;
 

@@ -258,14 +258,17 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
 RESPONSIVE
 ========================================================= */
 
-@media (max-width: 900px) {
-    .masonry {
-        columns: 2;
+@media (max-width: 768px) {
+    .container {
+        padding-left: 28px;
+        padding-right: 28px;
     }
 }
 
-@media (max-width: 600px) {
-    .masonry {
-        columns: 1;
+@media (max-width: 480px) {
+    .container {
+        padding-left: 20px;
+        padding-right: 20px;
     }
 }
+
