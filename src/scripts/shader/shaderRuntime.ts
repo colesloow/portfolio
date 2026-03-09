@@ -1,5 +1,15 @@
-export function createShaderRuntime(canvas, errorBox, initialCode) {
+export function createShaderRuntime(
+    canvas: HTMLCanvasElement,
+    errorBox: HTMLElement,
+    initialCode: string
+): { update: (fragment: string) => void } {
     const gl = canvas.getContext("webgl");
+
+    if (!gl) {
+        errorBox.style.display = "block";
+        errorBox.textContent = "WebGL not supported.";
+        return { update: () => {} };
+    }
 
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
@@ -11,9 +21,9 @@ gl_Position = vec4(position,0.0,1.0);
 }
 `;
 
-    function showError(msg) {
+    function showError(msg: string | null) {
         errorBox.style.display = "block";
-        errorBox.textContent = msg;
+        errorBox.textContent = msg ?? "";
     }
 
     function clearError() {
@@ -21,8 +31,9 @@ gl_Position = vec4(position,0.0,1.0);
         errorBox.textContent = "";
     }
 
-    function compileShader(type, source) {
+    function compileShader(type: number, source: string): WebGLShader | null {
         const shader = gl.createShader(type);
+        if (!shader) return null;
 
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
@@ -35,7 +46,7 @@ gl_Position = vec4(position,0.0,1.0);
         return shader;
     }
 
-    function createProgram(fragment) {
+    function createProgram(fragment: string): WebGLProgram | null {
         clearError();
 
         const vs = compileShader(gl.VERTEX_SHADER, vertexSrc);
@@ -44,6 +55,7 @@ gl_Position = vec4(position,0.0,1.0);
         if (!vs || !fs) return null;
 
         const program = gl.createProgram();
+        if (!program) return null;
 
         gl.attachShader(program, vs);
         gl.attachShader(program, fs);
@@ -66,12 +78,12 @@ gl_Position = vec4(position,0.0,1.0);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
 
-    function update(fragment) {
+    function update(fragment: string) {
         const newProgram = createProgram(fragment);
         if (newProgram) program = newProgram;
     }
 
-    function render(time) {
+    function render(time: number) {
         if (!program) {
             requestAnimationFrame(render);
             return;

@@ -1,6 +1,6 @@
 export default function remarkShader() {
-    return (tree) => {
-        const visit = (node, parent) => {
+    return (tree: any) => {
+        const visit = (node: any, parent: any) => {
             if (node.type === "code" && node.lang === "glsl" && node.meta === "live") {
                 parent.children[parent.children.indexOf(node)] = {
                     type: "mdxJsxFlowElement",
@@ -16,7 +16,7 @@ export default function remarkShader() {
             }
 
             if (node.children) {
-                node.children.forEach((child) => visit(child, node));
+                node.children.forEach((child: any) => visit(child, node));
             }
         };
 

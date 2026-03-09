@@ -1,6 +1,6 @@
-import { EditorView } from "https://esm.sh/@codemirror/view";
-import { HighlightStyle, syntaxHighlighting } from "https://esm.sh/@codemirror/language";
-import { tags as t } from "https://esm.sh/@lezer/highlight";
+import { EditorView } from "@codemirror/view";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { tags as t } from "@lezer/highlight";
 
 const darkTheme = EditorView.theme({
     "&": { backgroundColor: "#1e1f29", color: "#e6e8eb" },

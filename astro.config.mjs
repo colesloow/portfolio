@@ -5,7 +5,7 @@ import mdx from "@astrojs/mdx";
 
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import remarkShader from "./src/remark/remarkShader.js";
+import remarkShader from "./src/remark/remarkShader.ts";
 
 export default defineConfig({
     integrations: [mdx()],

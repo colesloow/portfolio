@@ -24,7 +24,7 @@ const resetId = `reset-${Math.random().toString(36).slice(2)}`;
 </div>
 
 <script type="module" define:vars={{ canvasId, editorId, errorId, resetId, code }}>
-    import { initShaderPlayground } from "/src/scripts/shader/initShaderPlayground.js";
+    import { initShaderPlayground } from "/src/scripts/shader/initShaderPlayground.ts";
 
     initShaderPlayground({
         canvasId,

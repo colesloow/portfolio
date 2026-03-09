@@ -1,15 +1,24 @@
-import { EditorView, basicSetup } from "https://esm.sh/codemirror";
-import { EditorState, Compartment } from "https://esm.sh/@codemirror/state";
-import { cpp } from "https://esm.sh/@codemirror/lang-cpp";
+import { EditorView } from "@codemirror/view";
+import { EditorState, Compartment } from "@codemirror/state";
+import { cpp } from "@codemirror/lang-cpp";
+import { basicSetup } from "@codemirror/basic-setup";
 
 import { getThemeExtensions } from "../editorThemes.js";
 import { createShaderRuntime } from "./shaderRuntime.js";
 
-export function initShaderPlayground({ canvasId, editorId, errorId, resetId, code }) {
-    const canvas = document.getElementById(canvasId);
-    const editorRoot = document.getElementById(editorId);
-    const errorBox = document.getElementById(errorId);
-    const resetBtn = document.getElementById(resetId);
+interface ShaderPlaygroundOptions {
+    canvasId: string;
+    editorId: string;
+    errorId: string;
+    resetId: string;
+    code: string;
+}
+
+export function initShaderPlayground({ canvasId, editorId, errorId, resetId, code }: ShaderPlaygroundOptions) {
+    const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    const editorRoot = document.getElementById(editorId)!;
+    const errorBox = document.getElementById(errorId)!;
+    const resetBtn = document.getElementById(resetId)!;
 
     const themeCompartment = new Compartment();
 
