@@ -44,6 +44,23 @@ const { project } = Astro.props;
         color: inherit;
     }
 
+    .project-card a:hover {
+        background: none;
+        -webkit-background-clip: unset;
+        background-clip: unset;
+        color: inherit;
+        animation: none;
+    }
+
+    .project-card a:hover h2 {
+        background: linear-gradient(90deg, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: shader-flow 4s linear infinite;
+    }
+
     .thumbnail {
         aspect-ratio: 16 / 9;
         overflow: hidden;

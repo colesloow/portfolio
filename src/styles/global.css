@@ -58,6 +58,24 @@ body {
 }
 
 /* =========================================================
+ANIMATIONS
+========================================================= */
+
+@keyframes shader-flow {
+    from { background-position: 0% 50%; }
+    to   { background-position: 100% 50%; }
+}
+
+@keyframes rainbow-icon {
+    0%   { color: #ff6b8a; }
+    20%  { color: #ffb347; }
+    40%  { color: #6bcb77; }
+    60%  { color: #4d96ff; }
+    80%  { color: #c77dff; }
+    100% { color: #ff6b8a; }
+}
+
+/* =========================================================
 BASE ELEMENTS
 ========================================================= */
 
@@ -69,11 +87,15 @@ h1 {
 a {
     color: inherit;
     text-decoration: none;
-    transition: color 0.15s ease;
 }
 
 a:hover {
-    color: var(--accent);
+    background: linear-gradient(90deg, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shader-flow 4s linear infinite;
 }
 
 /* =========================================================

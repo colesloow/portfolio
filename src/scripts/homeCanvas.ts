@@ -71,8 +71,7 @@ sharedStyle.textContent = `
         color: var(--text);
         transition: color 0.15s ease;
     }
-    .canvas-drawer-toggle:hover { color: var(--accent); }
-    .canvas-drawer-toggle:active { transform: scale(0.97); }
+    .canvas-drawer-toggle:hover { animation: rainbow-icon 4s linear infinite; }
     .canvas-drawer .drawer-row {
         display: flex;
         align-items: center;
