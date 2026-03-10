@@ -3,7 +3,7 @@ import { EditorState, Compartment } from "@codemirror/state";
 import { cpp } from "@codemirror/lang-cpp";
 import { basicSetup } from "codemirror";
 
-import { getThemeExtensions } from "../editorThemes.js";
+import { getThemeExtensions, onThemeChange } from "../editorThemes.js";
 import { createShaderRuntime } from "./shaderRuntime.js";
 
 interface ShaderPlaygroundOptions {
@@ -52,14 +52,9 @@ export function initShaderPlayground({ canvasId, editorId, errorId, resetId, cod
         });
     });
 
-    const observer = new MutationObserver(() => {
+    onThemeChange(() => {
         editor.dispatch({
             effects: themeCompartment.reconfigure(getThemeExtensions()),
         });
-    });
-
-    observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["class"],
     });
 }

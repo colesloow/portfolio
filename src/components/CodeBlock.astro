@@ -2,11 +2,10 @@
 const { code, lang = "text" } = Astro.props;
 
 const id = Math.random().toString(36).slice(2);
-const blockId = `code-block-${id}`;
 const codeId = `code-src-${id}`;
 ---
 
-<div class="code-block" id={blockId} data-lang={lang} data-code-id={codeId}>
+<div class="code-block" data-lang={lang} data-code-id={codeId}>
     <script type="text/plain" is:inline id={codeId} set:html={code}></script>
 </div>
 
@@ -17,7 +16,7 @@ const codeId = `code-src-${id}`;
     import { cpp } from "@codemirror/lang-cpp";
     import { python } from "@codemirror/lang-python";
     import { javascript } from "@codemirror/lang-javascript";
-    import { getThemeExtensions } from "../scripts/editorThemes";
+    import { getThemeExtensions, onThemeChange } from "../scripts/editorThemes";
 
     function getLanguage(lang: string) {
         switch (lang) {
@@ -55,15 +54,10 @@ const codeId = `code-src-${id}`;
             parent: el,
         });
 
-        const observer = new MutationObserver(() => {
+        onThemeChange(() => {
             editor.dispatch({
                 effects: themeCompartment.reconfigure(getThemeExtensions()),
             });
-        });
-
-        observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ["class"],
         });
     });
 </script>

@@ -51,3 +51,20 @@ export function getThemeExtensions() {
 
     return isLight ? [lightTheme, syntaxHighlighting(lightHighlight)] : [darkTheme, syntaxHighlighting(darkHighlight)];
 }
+
+const themeCallbacks: (() => void)[] = [];
+let themeObserver: MutationObserver | null = null;
+
+export function onThemeChange(callback: () => void) {
+    themeCallbacks.push(callback);
+
+    if (!themeObserver) {
+        themeObserver = new MutationObserver(() => {
+            themeCallbacks.forEach((cb) => cb());
+        });
+        themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+        });
+    }
+}
