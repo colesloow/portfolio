@@ -1,13 +1,24 @@
 ---
 const { code } = Astro.props;
 
-const canvasId = `shader-${Math.random().toString(36).slice(2)}`;
-const editorId = `editor-${Math.random().toString(36).slice(2)}`;
-const errorId = `error-${Math.random().toString(36).slice(2)}`;
-const resetId = `reset-${Math.random().toString(36).slice(2)}`;
+const id = Math.random().toString(36).slice(2);
+const canvasId = `shader-canvas-${id}`;
+const editorId = `shader-editor-${id}`;
+const errorId = `shader-error-${id}`;
+const resetId = `shader-reset-${id}`;
+const codeId = `shader-code-${id}`;
 ---
 
-<div class="shader-playground">
+<div
+    class="shader-playground"
+    data-canvas-id={canvasId}
+    data-editor-id={editorId}
+    data-error-id={errorId}
+    data-reset-id={resetId}
+    data-code-id={codeId}
+>
+    <script type="text/plain" is:inline id={codeId} set:html={code}></script>
+
     <div class="editor-wrapper">
         <div id={editorId} class="editor"></div>
 
@@ -23,15 +34,18 @@ const resetId = `reset-${Math.random().toString(36).slice(2)}`;
     <div id={errorId} class="shader-error"></div>
 </div>
 
-<script type="module" define:vars={{ canvasId, editorId, errorId, resetId, code }}>
-    import { initShaderPlayground } from "/src/scripts/shader/initShaderPlayground.ts";
+<script>
+    import { initShaderPlayground } from "../scripts/shader/initShaderPlayground";
 
-    initShaderPlayground({
-        canvasId,
-        editorId,
-        errorId,
-        resetId,
-        code,
+    document.querySelectorAll<HTMLElement>(".shader-playground").forEach((el) => {
+        const codeEl = document.getElementById(el.dataset.codeId!);
+        initShaderPlayground({
+            canvasId: el.dataset.canvasId!,
+            editorId: el.dataset.editorId!,
+            errorId: el.dataset.errorId!,
+            resetId: el.dataset.resetId!,
+            code: codeEl?.textContent ?? "",
+        });
     });
 </script>
 

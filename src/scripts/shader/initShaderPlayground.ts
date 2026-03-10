@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { EditorState, Compartment } from "@codemirror/state";
 import { cpp } from "@codemirror/lang-cpp";
-import { basicSetup } from "@codemirror/basic-setup";
+import { basicSetup } from "codemirror";
 
 import { getThemeExtensions } from "../editorThemes.js";
 import { createShaderRuntime } from "./shaderRuntime.js";
