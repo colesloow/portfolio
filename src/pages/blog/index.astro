@@ -3,7 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import ArticlePreview from "../../components/ArticlePreview.astro";
 import { getCollection } from "astro:content";
 
-const articles = await getCollection("blog");
+const articles = await getCollection("blog", ({ data }) => !data.draft);
 
 articles.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
