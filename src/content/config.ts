@@ -9,12 +9,12 @@ const blog = defineCollection({
     }),
 });
 
-const works = defineCollection({
-    schema: z.object({
+const projects = defineCollection({
+    schema: ({ image: img }) => z.object({
         title: z.string(),
         description: z.string(),
         date: z.date(),
-        thumbnail: z.string(),
+        thumbnail: img(),
         draft: z.boolean().optional(),
         tags: z.array(z.string()).optional(),
 
@@ -27,11 +27,11 @@ const works = defineCollection({
             })
             .optional(),
 
-        gallery: z.array(z.string()).optional(),
+        gallery: z.array(img()).optional(),
     }),
 });
 
 export const collections = {
     blog,
-    works,
+    projects,
 };
