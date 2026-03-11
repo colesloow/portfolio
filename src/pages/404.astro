@@ -1,0 +1,78 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout>
+    <main class="container">
+        <div class="not-found">
+            <p class="code">404</p>
+            <img src="/black_cat.png" alt="A pixel art black cat" class="cat" />
+            <h1>You found the cat.</h1>
+            <p class="message">The page you wanted, though, was not found.</p>
+            <a href="/"><span>Back to home</span></a>
+        </div>
+    </main>
+</BaseLayout>
+
+<style>
+    .not-found {
+        max-width: 480px;
+        margin: 0 auto;
+        padding: 80px 0;
+        text-align: center;
+    }
+
+    .code {
+        font-size: 6rem;
+        font-weight: 700;
+        line-height: 1;
+        margin: 0 0 8px 0;
+        color: var(--text-muted);
+        opacity: 0.3;
+    }
+
+    .cat {
+        width: 96px;
+        height: 96px;
+        image-rendering: pixelated;
+        margin: 0 auto 20px;
+        display: block;
+    }
+
+    h1 {
+        margin: 0 0 12px 0;
+        font-size: 1.8rem;
+    }
+
+    .message {
+        color: var(--text-muted);
+        margin: 0 0 40px 0;
+    }
+
+    a {
+        display: inline-block;
+        padding: 10px 24px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 0.95rem;
+        transition: border-color 0.2s ease;
+    }
+
+    a:hover {
+        background: none;
+        -webkit-background-clip: unset;
+        background-clip: unset;
+        color: inherit;
+        animation: none;
+        border-color: var(--text-muted);
+    }
+
+    a:hover span {
+        background: linear-gradient(90deg, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: shader-flow 4s linear infinite;
+    }
+</style>
