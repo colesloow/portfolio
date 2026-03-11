@@ -3,9 +3,25 @@ const { code, lang = "text" } = Astro.props;
 
 const id = Math.random().toString(36).slice(2);
 const codeId = `code-src-${id}`;
+
+const langLabels: Record<string, string> = {
+    javascript: "JavaScript",
+    js: "JavaScript",
+    typescript: "TypeScript",
+    ts: "TypeScript",
+    python: "Python",
+    cpp: "C++",
+    "c++": "C++",
+    csharp: "C#",
+    glsl: "GLSL",
+    pseudocode: "Pseudocode",
+};
+
+const displayLang = langLabels[lang] ?? (lang !== "text" ? lang.toUpperCase() : "");
 ---
 
 <div class="code-block" data-lang={lang} data-code-id={codeId}>
+    {displayLang && <div class="code-header"><span class="code-lang-label">{displayLang}</span></div>}
     <script type="text/plain" is:inline id={codeId} set:html={code}></script>
 </div>
 
@@ -24,7 +40,9 @@ const codeId = `code-src-${id}`;
                 return python();
             case "javascript":
             case "js":
-                return javascript();
+            case "typescript":
+            case "ts":
+                return javascript({ typescript: lang === "ts" || lang === "typescript" });
             case "cpp":
             case "c++":
             case "csharp":
@@ -33,6 +51,8 @@ const codeId = `code-src-${id}`;
                 return [];
         }
     }
+
+    const THRESHOLD = 400;
 
     document.querySelectorAll<HTMLElement>(".code-block[data-lang]").forEach((el) => {
         const codeEl = document.getElementById(el.dataset.codeId!);
@@ -59,5 +79,52 @@ const codeId = `code-src-${id}`;
                 effects: themeCompartment.reconfigure(getThemeExtensions()),
             });
         });
+
+        requestAnimationFrame(() => {
+            const cmEditor = el.querySelector<HTMLElement>(".cm-editor");
+            if (cmEditor && cmEditor.scrollHeight > THRESHOLD + 20) {
+                el.classList.add("collapsed");
+                const btn = document.createElement("button");
+                btn.textContent = "Show more";
+                btn.className = "code-expand-btn";
+                btn.addEventListener("click", () => {
+                    const collapsed = el.classList.toggle("collapsed");
+                    btn.textContent = collapsed ? "Show more" : "Show less";
+                });
+                el.insertAdjacentElement("afterend", btn);
+            }
+        });
     });
 </script>
+
+<style>
+    .code-block {
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 1.8rem;
+        margin-bottom: 0;
+        font-size: 14px;
+    }
+
+    .code-header {
+        display: flex;
+        justify-content: flex-end;
+        padding: 6px 12px 4px;
+        background: #111;
+    }
+
+    .code-lang-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        font-family: monospace;
+    }
+
+    .code-block.collapsed :global(.cm-editor) {
+        max-height: 320px;
+        overflow: hidden;
+        mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    }
+</style>

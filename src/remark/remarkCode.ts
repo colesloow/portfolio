@@ -21,21 +21,27 @@ function makeStringExpression(value: string) {
     };
 }
 
-export default function remarkShader() {
+export default function remarkCode() {
     return (tree: any) => {
         let found = false;
 
         const visit = (node: any, parent: any) => {
-            if (node.type === "code" && node.lang === "glsl" && node.meta === "live") {
+            // Skip blocks handled by remarkShader
+            if (node.type === "code" && !(node.lang === "glsl" && node.meta === "live")) {
                 found = true;
                 parent.children[parent.children.indexOf(node)] = {
                     type: "mdxJsxFlowElement",
-                    name: "ShaderPlayground",
+                    name: "CodeBlock",
                     attributes: [
                         {
                             type: "mdxJsxAttribute",
                             name: "code",
                             value: makeStringExpression(node.value),
+                        },
+                        {
+                            type: "mdxJsxAttribute",
+                            name: "lang",
+                            value: node.lang || "text",
                         },
                     ],
                     children: [],
@@ -56,14 +62,14 @@ export default function remarkShader() {
                     n.data?.estree?.body?.some(
                         (s: any) =>
                             s.type === "ImportDeclaration" &&
-                            s.specifiers?.some((sp: any) => sp.local?.name === "ShaderPlayground")
+                            s.specifiers?.some((sp: any) => sp.local?.name === "CodeBlock")
                     )
             );
 
             if (!alreadyImported) {
                 tree.children.unshift({
                     type: "mdxjsEsm",
-                    value: "import ShaderPlayground from '../../components/ShaderPlayground.astro'",
+                    value: "import CodeBlock from '../../components/CodeBlock.astro'",
                     data: {
                         estree: {
                             type: "Program",
@@ -73,13 +79,13 @@ export default function remarkShader() {
                                     specifiers: [
                                         {
                                             type: "ImportDefaultSpecifier",
-                                            local: { type: "Identifier", name: "ShaderPlayground" },
+                                            local: { type: "Identifier", name: "CodeBlock" },
                                         },
                                     ],
                                     source: {
                                         type: "Literal",
-                                        value: "../../components/ShaderPlayground.astro",
-                                        raw: "'../../components/ShaderPlayground.astro'",
+                                        value: "../../components/CodeBlock.astro",
+                                        raw: "'../../components/CodeBlock.astro'",
                                     },
                                 },
                             ],

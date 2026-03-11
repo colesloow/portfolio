@@ -277,10 +277,66 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
 /* Inline code */
 
 .project-content p code,
-.article-content p code {
+.project-content li code,
+.article-content p code,
+.article-content li code {
     background: rgba(255, 255, 255, 0.08);
     padding: 2px 6px;
     border-radius: 4px;
+}
+
+.light .project-content p code,
+.light .project-content li code,
+.light .article-content p code,
+.light .article-content li code {
+    background: rgba(0, 0, 0, 0.07);
+}
+
+/* Code block language label */
+
+.project-content pre[data-language]::before,
+.article-content pre[data-language]::before {
+    content: attr(data-language);
+    display: block;
+    text-align: right;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: monospace;
+}
+
+/* Collapsible code blocks */
+
+.article-content pre.collapsed,
+.project-content pre.collapsed {
+    max-height: 320px;
+    overflow: hidden;
+    position: relative;
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+.code-expand-btn {
+    display: block;
+    width: 100%;
+    margin-top: -4px;
+    margin-bottom: 1.8rem;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: center;
+}
+
+.code-expand-btn:hover {
+    color: var(--text);
+    background: var(--border);
 }
 
 /* Blockquotes */

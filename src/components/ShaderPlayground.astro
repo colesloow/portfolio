@@ -19,23 +19,28 @@ const codeId = `shader-code-${id}`;
 >
     <script type="text/plain" is:inline id={codeId} set:html={code}></script>
 
+    <div class="shader-header">
+        <button id={resetId}>Reset shader</button>
+        <span class="shader-lang">GLSL</span>
+    </div>
+
+    <div id={errorId} class="shader-error" role="alert" aria-live="polite"></div>
+
     <div class="editor-wrapper">
-        <div id={editorId} class="editor"></div>
+        <div class="editor-column">
+            <div id={editorId} class="editor"></div>
+        </div>
 
         <div class="shader-preview">
             <canvas id={canvasId} aria-label="Live shader preview"></canvas>
         </div>
     </div>
-
-    <div class="shader-controls">
-        <button id={resetId}>Reset shader</button>
-    </div>
-
-    <div id={errorId} class="shader-error" role="alert" aria-live="polite"></div>
 </div>
 
 <script>
     import { initShaderPlayground } from "../scripts/shader/initShaderPlayground";
+
+    const THRESHOLD = 400;
 
     document.querySelectorAll<HTMLElement>(".shader-playground").forEach((el) => {
         const codeEl = document.getElementById(el.dataset.codeId!);
@@ -46,12 +51,64 @@ const codeId = `shader-code-${id}`;
             resetId: el.dataset.resetId!,
             code: codeEl?.textContent ?? "",
         });
+
+        requestAnimationFrame(() => {
+            const editorEl = document.getElementById(el.dataset.editorId!);
+            if (editorEl && editorEl.scrollHeight > THRESHOLD + 20) {
+                editorEl.classList.add("collapsed-editor");
+                const btn = document.createElement("button");
+                btn.textContent = "Show more";
+                btn.className = "code-expand-btn";
+                btn.addEventListener("click", () => {
+                    const collapsed = editorEl.classList.toggle("collapsed-editor");
+                    btn.textContent = collapsed ? "Show more" : "Show less";
+                });
+                editorEl.insertAdjacentElement("afterend", btn);
+            }
+        });
     });
 </script>
 
 <style>
     .shader-playground {
         margin: 40px 0;
+    }
+
+    /* header */
+
+    .shader-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 12px;
+        background: #111;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .shader-lang {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        font-family: monospace;
+    }
+
+    .shader-header button {
+        background: var(--accent);
+        border: none;
+        padding: 4px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        color: black;
+        font-size: 12px;
+    }
+
+    :global(.light) .shader-header button {
+        color: white;
+    }
+
+    .shader-header button:hover {
+        filter: brightness(1.1);
     }
 
     /* grid */
@@ -65,10 +122,27 @@ const codeId = `shader-code-${id}`;
 
     /* editor */
 
+    .editor-column {
+        display: flex;
+        flex-direction: column;
+    }
+
     .editor {
-        border-radius: 8px;
+        border-radius: 0 0 8px 8px;
         overflow: hidden;
         font-size: 14px;
+    }
+
+    .editor.collapsed-editor :global(.cm-editor) {
+        max-height: 320px;
+        overflow: hidden;
+        mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+        -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    }
+
+    .editor-column :global(.code-expand-btn) {
+        margin-top: -6px;
+        border-radius: 0 0 8px 8px;
     }
 
     /* preview */
@@ -86,50 +160,22 @@ const codeId = `shader-code-${id}`;
         height: 100%;
     }
 
-    /* controls */
-
-    .shader-controls {
-        margin-top: 12px;
-    }
-
-    .shader-controls button {
-        background: var(--accent);
-        border: none;
-        padding: 6px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        color: black;
-        font-size: 13px;
-    }
-
-    :global(.light) .shader-controls button {
-        color: white;
-    }
-
-    .shader-controls button:hover {
-        filter: brightness(1.1);
-    }
-
     /* error */
 
     .shader-error {
-        margin-top: 10px;
-        padding: 8px 12px;
-        border-radius: 6px;
-
-        background: rgba(255, 0, 120, 0.18);
+        padding: 10px 14px;
+        border-left: 3px solid #ff2d78;
+        background: rgba(255, 0, 100, 0.12);
         color: #ff5fa2;
-
-        border: 1px solid rgba(255, 0, 120, 0.35);
-
-        font-size: 14px;
+        font-size: 13px;
+        font-family: monospace;
+        white-space: pre-wrap;
         display: none;
     }
 
     :global(.light) .shader-error {
-        background: rgba(255, 0, 100, 0.1);
-        color: #b5004a;
-        border-color: rgba(255, 0, 100, 0.4);
+        background: rgba(255, 0, 100, 0.07);
+        color: #c0004e;
     }
 
     /* editor tweaks */

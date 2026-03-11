@@ -1,0 +1,343 @@
+---
+title: Poisson Disc Sampling
+date: 2026-03-11
+summary: How a single geometric constraint transforms random noise into something genuinely natural, and why it shows up everywhere from game worlds to rendering algorithms.
+---
+
+## The problem with pure random
+
+Randomness sounds like the right tool when you want things to look natural. Random tree placement, random enemy spawns, random sample positions for anti-aliasing. Surely a random number generator is all you need?
+
+Not quite. Pure random distributions have a well-known flaw: they cluster. Scatter 200 points randomly across a canvas and you'll see dense piles here, conspicuous empty voids there. It doesn't look natural. It looks like something went wrong.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+
+vec2 hash2(vec2 p) {
+    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return fract(sin(p) * 43758.5453);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / u_resolution.y;
+    float aspect = u_resolution.x / u_resolution.y;
+    float mid = aspect * 0.5;
+
+    float scale = 10.0;
+    vec2 scaled = uv * scale;
+    vec2 cell = floor(scaled);
+
+    float dots = 0.0;
+    float dotR = 0.15;
+
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            vec2 nc = cell + vec2(float(dx), float(dy));
+            vec2 rnd = hash2(nc);
+
+            vec2 pt;
+            if (uv.x < mid) {
+                pt = nc + rnd;
+            } else {
+                pt = nc + 0.5 + (rnd - 0.5) * 0.5;
+            }
+
+            float d = length(scaled - pt);
+            dots += 1.0 - smoothstep(dotR * 0.6, dotR, d);
+        }
+    }
+
+    dots = clamp(dots, 0.0, 1.0);
+    float line = 1.0 - smoothstep(0.0, 2.0 / u_resolution.y, abs(uv.x - mid));
+
+    vec3 bg = vec3(0.06, 0.07, 0.10);
+    vec3 fg = vec3(0.92, 0.92, 0.88);
+    vec3 accent = vec3(0.3, 0.75, 0.95);
+
+    vec3 col = mix(bg, fg, dots);
+    col = mix(col, accent, line);
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+Left side: pure random. Notice the clumps and the empty patches. Right side: Poisson disc sampling. Same number of points, same general randomness, but evenly spread. No obvious gaps, no piles.
+
+This difference has a name. In signal processing terms, pure random produces **white noise**: its energy is spread evenly across all frequencies, including the very low ones that create large-scale variation (the clusters and voids). What we want is **blue noise**: energy concentrated in high frequencies, meaning fine-scale variation without large-scale structure. Poisson disc sampling is one of the most practical ways to get it.
+
+## One rule to fix everything
+
+The entire algorithm rests on a single constraint:
+
+> Every point must be at least a distance *r* away from all other points.
+
+That's it. This minimum distance *r* (the "disc radius") prevents clustering by making it physically impossible for two points to be too close. Points can still land anywhere as long as they respect this rule, so you keep genuine randomness, just without the ugly clumps.
+
+## The naive approach: dart throwing
+
+The simplest implementation is called **dart throwing**:
+
+1. Place the first point randomly.
+2. Pick a new random candidate somewhere in the region.
+3. Check whether it's at least distance *r* from every existing point.
+4. If yes: accept it. If no: throw it away.
+5. Repeat until satisfied.
+
+```pseudocode
+function dartThrowing(width, height, r, maxAttempts):
+    points = []
+
+    repeat maxAttempts times:
+        candidate = randomPoint(width, height)
+
+        valid = true
+        for each point in points:
+            if distance(candidate, point) < r:
+                valid = false
+                break
+
+        if valid:
+            points.add(candidate)
+
+    return points
+```
+
+This works, but it's slow. As the region fills up, new candidates get rejected more and more often. You spend most of your time throwing darts that miss. For large regions or small values of *r*, this becomes completely impractical.
+
+## Bridson's algorithm
+
+In 2007, Robert Bridson published an algorithm that solves this in **O(n)** time: proportional to the number of output points, not to the number of attempts.
+
+The key idea is a **spatial acceleration grid**. Instead of testing a new candidate against all existing points, you only check the small neighborhood of cells around it.
+
+Here's how it works:
+
+1. Create a grid with cell size `r / √2`. Store at most one point per cell.
+2. Place an initial seed point. Add it to the point list and to an **active list**.
+3. While the active list is not empty:
+   - Pick a random point from the active list.
+   - Try up to `k` candidates placed in the ring between radius `r` and `2r` around it.
+   - For each candidate: check only the nearby grid cells for conflicts.
+   - If a valid candidate is found: add it to the grid, the point list, and the active list.
+   - If no valid candidate is found after `k` tries: remove the current point from the active list.
+
+The active list ensures we keep growing from every point before declaring a region full. The grid makes each neighbor lookup O(1) instead of O(n).
+
+```javascript
+function poissonDisc(width, height, r, k = 30) {
+    const cellSize = r / Math.SQRT2;
+    const gridW = Math.ceil(width / cellSize);
+    const gridH = Math.ceil(height / cellSize);
+    const grid = new Array(gridW * gridH).fill(null);
+    const points = [];
+    const active = [];
+
+    function cellIndex(x, y) {
+        return Math.floor(x / cellSize) + Math.floor(y / cellSize) * gridW;
+    }
+
+    function isValid(x, y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
+
+        const gx = Math.floor(x / cellSize);
+        const gy = Math.floor(y / cellSize);
+        const x0 = Math.max(0, gx - 2);
+        const x1 = Math.min(gridW - 1, gx + 2);
+        const y0 = Math.max(0, gy - 2);
+        const y1 = Math.min(gridH - 1, gy + 2);
+
+        for (let iy = y0; iy <= y1; iy++) {
+            for (let ix = x0; ix <= x1; ix++) {
+                const n = grid[ix + iy * gridW];
+                if (n !== null) {
+                    const dx = n[0] - x;
+                    const dy = n[1] - y;
+                    if (dx * dx + dy * dy < r * r) return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    const sx = Math.random() * width;
+    const sy = Math.random() * height;
+    points.push([sx, sy]);
+    active.push([sx, sy]);
+    grid[cellIndex(sx, sy)] = [sx, sy];
+
+    while (active.length > 0) {
+        const i = Math.floor(Math.random() * active.length);
+        const [px, py] = active[i];
+        let found = false;
+
+        for (let attempt = 0; attempt < k; attempt++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const dist = r * (1 + Math.random());
+            const cx = px + Math.cos(angle) * dist;
+            const cy = py + Math.sin(angle) * dist;
+
+            if (isValid(cx, cy)) {
+                points.push([cx, cy]);
+                active.push([cx, cy]);
+                grid[cellIndex(cx, cy)] = [cx, cy];
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) active.splice(i, 1);
+    }
+
+    return points;
+}
+```
+
+The parameter `k` controls how hard the algorithm tries before moving on. The canonical value is 30, which produces dense, nearly-maximal distributions while staying fast. Lower values run faster but leave more empty space.
+
+## The math: why r / √2?
+
+The cell size `r / √2` is chosen so that **each cell can contain at most one point**.
+
+A square with side length `s` has a diagonal of `s√2`. If `s = r / √2`, the diagonal is exactly `r`. Since two points inside the same cell are at most one diagonal apart, and all points must be at least `r` apart, at most one point can fit per cell.
+
+This single-point-per-cell property is what makes the lookup efficient. To find all existing points within distance `r` of a candidate, we only need to check a 5x5 block of cells centered on the candidate's cell. That's at most 25 cells to check, a constant regardless of total point count.
+
+## Every point owns a piece of the space
+
+A useful way to visualize why Poisson disc sampling is "fair" is the Voronoi diagram of its points. For any distribution, you can draw the Voronoi diagram by coloring each pixel according to which point it's closest to.
+
+With Poisson disc points, these cells end up roughly equal in size. No point is surrounded by an enormous empty territory, no point is squeezed into a tiny sliver.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+uniform float u_time;
+
+vec2 hash2(vec2 p) {
+    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return fract(sin(p) * 43758.5453);
+}
+
+vec3 hash3(vec2 p) {
+    vec3 q = vec3(
+        dot(p, vec2(127.1, 311.7)),
+        dot(p, vec2(269.5, 183.3)),
+        dot(p, vec2(419.2, 371.9))
+    );
+    return fract(sin(q) * 43758.5453);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / u_resolution.y;
+    float scale = 5.0;
+    vec2 scaled = uv * scale;
+    vec2 cell = floor(scaled);
+
+    float minDist = 100.0;
+    float minDist2 = 100.0;
+    vec3 minColor = vec3(0.0);
+
+    for (int dy = -2; dy <= 2; dy++) {
+        for (int dx = -2; dx <= 2; dx++) {
+            vec2 nc = cell + vec2(float(dx), float(dy));
+            vec2 rnd = hash2(nc);
+            vec2 drift = 0.015 * vec2(
+                sin(u_time * 0.4 + rnd.x * 6.28),
+                cos(u_time * 0.4 + rnd.y * 6.28)
+            );
+            vec2 pt = nc + 0.5 + (rnd - 0.5) * 0.55 + drift;
+            float d = length(scaled - pt);
+
+            if (d < minDist) {
+                minDist2 = minDist;
+                minDist = d;
+                minColor = hash3(nc) * 0.5 + 0.2;
+            } else if (d < minDist2) {
+                minDist2 = d;
+            }
+        }
+    }
+
+    float edge = 1.0 - smoothstep(0.0, 0.04, minDist2 - minDist);
+    float center = 1.0 - smoothstep(0.05, 0.09, minDist);
+
+    vec3 col = minColor * 0.55;
+    col = mix(col, vec3(0.07), edge * 0.9);
+    col = mix(col, vec3(1.0), center);
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+The white dots are the Poisson disc points. Each colored region is one cell. Even as the points drift slightly, the regions stay roughly the same size. No point colonizes its neighbors' territory.
+
+Compare this to what the Voronoi diagram of a white noise distribution looks like: some points would have tiny slivers, others would own huge areas.
+
+## Where it shows up
+
+**Generative art:** the animated canvas on [this site's home page](/) uses Poisson disc sampling to place its particles. They start evenly distributed and stay that way rather than clumping over time.
+
+**Game development:** foliage scattering, loot drops, ambient sound source placement, procedural dungeon decoration. Uniform distribution means no awkward empty patches and no impossible-to-navigate piles. Unity's terrain scatter system and Unreal's foliage painter both use variants of Poisson disc sampling internally. In C#:
+
+```csharp
+// Unity: generate Poisson disc points in a rect
+public static List<Vector2> Generate(float width, float height, float radius, int k = 30) {
+    float cellSize = radius / Mathf.Sqrt(2f);
+    int gridW = Mathf.CeilToInt(width / cellSize);
+    int gridH = Mathf.CeilToInt(height / cellSize);
+    Vector2?[,] grid = new Vector2?[gridW, gridH];
+
+    List<Vector2> points = new();
+    List<Vector2> active = new();
+
+    Vector2 seed = new(Random.value * width, Random.value * height);
+    Add(seed);
+
+    while (active.Count > 0) {
+        int i = Random.Range(0, active.Count);
+        Vector2 origin = active[i];
+        bool found = false;
+
+        for (int attempt = 0; attempt < k; attempt++) {
+            float angle = Random.value * Mathf.PI * 2f;
+            float dist = radius * (1f + Random.value);
+            Vector2 candidate = origin + new Vector2(
+                Mathf.Cos(angle), Mathf.Sin(angle)) * dist;
+
+            if (IsValid(candidate)) {
+                Add(candidate);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) active.RemoveAt(i);
+    }
+
+    return points;
+
+    void Add(Vector2 p) {
+        points.Add(p);
+        active.Add(p);
+        grid[Mathf.FloorToInt(p.x / cellSize), Mathf.FloorToInt(p.y / cellSize)] = p;
+    }
+
+    bool IsValid(Vector2 p) {
+        if (p.x < 0 || p.x >= width || p.y < 0 || p.y >= height) return false;
+        int gx = Mathf.FloorToInt(p.x / cellSize);
+        int gy = Mathf.FloorToInt(p.y / cellSize);
+        for (int iy = Mathf.Max(0, gy - 2); iy <= Mathf.Min(gridH - 1, gy + 2); iy++)
+        for (int ix = Mathf.Max(0, gx - 2); ix <= Mathf.Min(gridW - 1, gx + 2); ix++)
+            if (grid[ix, iy].HasValue && Vector2.Distance(grid[ix, iy].Value, p) < radius)
+                return false;
+        return true;
+    }
+}
+```
+
+**Rendering:** physically based renderers use blue noise to distribute ray samples for shadows, ambient occlusion, and path tracing. Poisson-distributed samples converge faster than pure Monte Carlo with the same sample count because they avoid redundant coverage of the same region.
+
+**Stippling:** Poisson disc sampling is the foundation of the classic stippling effect, where a continuous-tone image is represented entirely by dots. Even dot placement preserves perceived luminance far better than random scatter.
+
+**Texture synthesis:** when generating Voronoi-based textures (stone, cells, organic surfaces), the feature points need to be Poisson-distributed to avoid degenerate cells that are too thin or too small to render properly.

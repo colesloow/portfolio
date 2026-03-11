@@ -28,3 +28,31 @@ const { Content } = await article.render();
         <Content />
     </article>
 </BaseLayout>
+
+<script>
+    // Language labels on code blocks
+    document.querySelectorAll<HTMLElement>(".article-content pre > code[class]").forEach((code) => {
+        const match = code.className.match(/language-(\w+)/);
+        if (match) {
+            const lang = match[1] === "csharp" ? "C#" : match[1];
+            const pre = code.closest("pre") as HTMLElement;
+            if (pre) pre.dataset.language = lang;
+        }
+    });
+
+    // Collapsible code blocks
+    const THRESHOLD = 320;
+    document.querySelectorAll<HTMLElement>(".article-content pre").forEach((pre) => {
+        if (pre.scrollHeight > THRESHOLD + 20) {
+            pre.classList.add("collapsed");
+            const btn = document.createElement("button");
+            btn.textContent = "Show more";
+            btn.className = "code-expand-btn";
+            btn.addEventListener("click", () => {
+                const collapsed = pre.classList.toggle("collapsed");
+                btn.textContent = collapsed ? "Show more" : "Show less";
+            });
+            pre.insertAdjacentElement("afterend", btn);
+        }
+    });
+</script>

@@ -6,13 +6,20 @@ import mdx from "@astrojs/mdx";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import remarkShader from "./src/remark/remarkShader.ts";
+import remarkCode from "./src/remark/remarkCode.ts";
 
 export default defineConfig({
     site: "https://your-site.netlify.app", // update with your actual domain once deployed
-    integrations: [mdx()],
+    integrations: [
+        mdx({
+            extendMarkdownConfig: false,
+            remarkPlugins: [remarkMath, remarkShader, remarkCode],
+            rehypePlugins: [rehypeKatex],
+        }),
+    ],
 
     markdown: {
-        remarkPlugins: [remarkMath, remarkShader],
+        remarkPlugins: [remarkMath],
         rehypePlugins: [rehypeKatex],
     },
 });
