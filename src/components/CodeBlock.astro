@@ -68,6 +68,7 @@ const displayLang = langLabels[lang] ?? (lang !== "text" ? lang.toUpperCase() : 
                     basicSetup,
                     getLanguage(lang),
                     EditorView.editable.of(false),
+                    EditorView.lineWrapping,
                     themeCompartment.of(getThemeExtensions()),
                 ],
             }),
@@ -104,6 +105,7 @@ const displayLang = langLabels[lang] ?? (lang !== "text" ? lang.toUpperCase() : 
         margin-top: 1.8rem;
         margin-bottom: 0;
         font-size: 14px;
+        max-width: 100%;
     }
 
     .code-header {

@@ -1,0 +1,235 @@
+---
+export interface Step {
+    title: string;
+    subtitle?: string;
+    description: string; // HTML allowed
+}
+
+const { steps } = Astro.props as { steps: Step[] };
+---
+
+<div
+    class="stepper"
+    data-descriptions={JSON.stringify(steps.map((s) => s.description))}
+>
+    <div class="stepper-panel">
+        {
+            steps.map((step, i) => (
+                <button class:list={["step-btn", { active: i === 0 }]} data-idx={i}>
+                    <div class="step-num">STEP {i + 1}</div>
+                    <div class="step-title">{step.title}</div>
+                    {step.subtitle && <div class="step-sub">{step.subtitle}</div>}
+                </button>
+            ))
+        }
+    </div>
+
+    <div class="stepper-main">
+        <div class="stepper-visual">
+            <slot name="visual" />
+        </div>
+        <div class="stepper-desc" set:html={steps[0].description}></div>
+        <div class="stepper-nav">
+            <button class="nav-btn prev-btn" disabled>← Previous</button>
+            <button class="nav-btn next-btn">Next →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll<HTMLElement>(".stepper").forEach((el) => {
+        const descriptions: string[] = JSON.parse(el.dataset.descriptions!);
+        const stepBtns = el.querySelectorAll<HTMLElement>(".step-btn");
+        const desc = el.querySelector<HTMLElement>(".stepper-desc")!;
+        const prevBtn = el.querySelector<HTMLButtonElement>(".prev-btn")!;
+        const nextBtn = el.querySelector<HTMLButtonElement>(".next-btn")!;
+        let current = 0;
+
+        function go(idx: number) {
+            current = idx;
+            stepBtns.forEach((btn, i) => btn.classList.toggle("active", i === idx));
+            desc.innerHTML = descriptions[idx];
+            prevBtn.disabled = idx === 0;
+            nextBtn.disabled = idx === descriptions.length - 1;
+            el.dispatchEvent(
+                new CustomEvent("stepper:change", { detail: { step: idx } })
+            );
+        }
+
+        stepBtns.forEach((btn, i) => btn.addEventListener("click", () => go(i)));
+        prevBtn.addEventListener("click", () => go(current - 1));
+        nextBtn.addEventListener("click", () => go(current + 1));
+    });
+</script>
+
+<style>
+    .stepper {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        gap: 20px;
+        margin: 2rem 0;
+        align-items: start;
+    }
+
+    /* --- Step panel --- */
+
+    .stepper-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .step-btn {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 11px 13px;
+        cursor: pointer;
+        text-align: left;
+        color: var(--text);
+        font-family: monospace;
+        width: 100%;
+        transition: border-color 0.15s, background 0.15s;
+    }
+
+    .step-btn:hover {
+        border-color: var(--text-muted);
+    }
+
+    .step-btn.active {
+        border-color: var(--accent);
+        background: rgba(34, 211, 238, 0.05);
+    }
+
+    .step-num {
+        font-size: 0.6rem;
+        color: var(--accent);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 3px;
+    }
+
+    .step-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.3;
+        font-family: system-ui, sans-serif;
+    }
+
+    .step-sub {
+        font-size: 0.67rem;
+        color: var(--text-muted);
+        margin-top: 3px;
+        line-height: 1.4;
+    }
+
+    /* --- Main area --- */
+
+    .stepper-main {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .stepper-visual {
+        width: 100%;
+        aspect-ratio: 1;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .stepper-visual :global(canvas) {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    /* --- Description --- */
+
+    .stepper-desc {
+        font-size: 0.84rem;
+        line-height: 1.65;
+        color: var(--text-muted);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 13px 16px;
+    }
+
+    .stepper-desc :global(strong) {
+        color: var(--text);
+    }
+
+    .stepper-desc :global(code) {
+        background: rgba(255, 255, 255, 0.07);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.82rem;
+        font-family: monospace;
+    }
+
+    .stepper-desc :global(em) {
+        color: var(--text);
+    }
+
+    :global(.light) .stepper-desc :global(code) {
+        background: rgba(0, 0, 0, 0.06);
+    }
+
+    /* --- Nav --- */
+
+    .stepper-nav {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .nav-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 7px 16px;
+        font-family: monospace;
+        font-size: 0.75rem;
+        color: var(--text);
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    .nav-btn:disabled {
+        opacity: 0.3;
+        cursor: default;
+    }
+
+    /* --- Mobile --- */
+
+    @media (max-width: 700px) {
+        .stepper {
+            grid-template-columns: 1fr;
+        }
+
+        .stepper-panel {
+            flex-direction: row;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            gap: 5px;
+        }
+
+        .step-btn {
+            flex-shrink: 0;
+            min-width: 120px;
+        }
+
+        .step-sub {
+            display: none;
+        }
+    }
+</style>

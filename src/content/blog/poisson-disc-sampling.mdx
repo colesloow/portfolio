@@ -4,6 +4,8 @@ date: 2026-03-11
 summary: How a single geometric constraint transforms random noise into something genuinely natural, and why it shows up everywhere from game worlds to rendering algorithms.
 ---
 
+import PoissonStepper from '../../components/PoissonStepper.astro';
+
 ## The problem with pure random
 
 Randomness sounds like the right tool when you want things to look natural. Random tree placement, random enemy spawns, random sample positions for anti-aliasing. Surely a random number generator is all you need?
@@ -107,7 +109,7 @@ This works, but it's slow. As the region fills up, new candidates get rejected m
 
 ## Bridson's algorithm
 
-In 2007, Robert Bridson published an algorithm that solves this in **O(n)** time: proportional to the number of output points, not to the number of attempts.
+In 2007, Robert Bridson published a [two-page paper](https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf) at SIGGRAPH that solves this in **O(n)** time: proportional to the number of output points, not to the number of attempts.
 
 The key idea is a **spatial acceleration grid**. Instead of testing a new candidate against all existing points, you only check the small neighborhood of cells around it.
 
@@ -276,9 +278,13 @@ Compare this to what the Voronoi diagram of a white noise distribution looks lik
 
 ## Where it shows up
 
-**Generative art:** the animated canvas on [this site's home page](/) uses Poisson disc sampling to place its particles. They start evenly distributed and stay that way rather than clumping over time.
+**Rendering:** physically based renderers use blue noise to distribute ray samples for shadows, ambient occlusion, and path tracing. Poisson-distributed samples converge faster than pure Monte Carlo with the same sample count because they avoid redundant coverage of the same region. The same principle applies to [supersampling](https://en.wikipedia.org/wiki/Supersampling): instead of placing sub-pixel samples on a regular grid (which can alias with regular geometry), Poisson disc sampling spreads them irregularly enough to avoid structured artifacts while keeping them spread enough to actually cover the pixel.
 
-**Game development:** foliage scattering, loot drops, ambient sound source placement, procedural dungeon decoration. Uniform distribution means no awkward empty patches and no impossible-to-navigate piles. Unity's terrain scatter system and Unreal's foliage painter both use variants of Poisson disc sampling internally. In C#:
+**Stippling:** Poisson disc sampling is the foundation of the classic stippling effect, where a continuous-tone image is represented entirely by dots. Even dot placement preserves perceived luminance far better than random scatter.
+
+**Texture synthesis:** when generating Voronoi-based textures (stone, cells, organic surfaces), the feature points need to be Poisson-distributed to avoid degenerate cells that are too thin or too small to render properly.
+
+**Game development:** foliage scattering, loot drops, ambient sound source placement, procedural dungeon decoration. Uniform distribution means no awkward empty patches and no impossible-to-navigate piles. Unity's terrain scatter system and Unreal's foliage painter both use variants of Poisson disc sampling internally. Sebastian Lague has a [great walkthrough](https://www.youtube.com/watch?v=7WcmyxyFO7o) of implementing it for procedural object placement in Unity. In C#:
 
 ```csharp
 // Unity: generate Poisson disc points in a rect
@@ -336,8 +342,18 @@ public static List<Vector2> Generate(float width, float height, float radius, in
 }
 ```
 
-**Rendering:** physically based renderers use blue noise to distribute ray samples for shadows, ambient occlusion, and path tracing. Poisson-distributed samples converge faster than pure Monte Carlo with the same sample count because they avoid redundant coverage of the same region.
+## The home page canvas
 
-**Stippling:** Poisson disc sampling is the foundation of the classic stippling effect, where a continuous-tone image is represented entirely by dots. Even dot placement preserves perceived luminance far better than random scatter.
+The animation on the [home page](/) runs the same algorithm, with one addition: every time a point is accepted, a line is drawn from its parent to it. That single change turns the abstract data structure into a visible spanning tree.
 
-**Texture synthesis:** when generating Voronoi-based textures (stone, cells, organic surfaces), the feature points need to be Poisson-distributed to avoid degenerate cells that are too thin or too small to render properly.
+<PoissonStepper />
+
+Each click places five seed points in a small cross pattern, all sharing the same color. New points inherit their parent's color, so each click produces a distinct colored region that grows outward. Because no two branches can come within `r` of each other, regions of different colors expand side by side but never merge or cross, filling the canvas right up to each other's boundary.
+
+## Sources
+
+- Bridson, R. (2007). *Fast Poisson Disk Sampling in Arbitrary Dimensions.* SIGGRAPH 2007 Sketches. <a href="https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf" target="_blank" rel="noopener noreferrer" style="text-decoration: underline">PDF</a>
+- Sighack. *Poisson Disk Sampling with Bridson's Algorithm.* <a href="https://sighack.com/post/poisson-disk-sampling-bridsons-algorithm" target="_blank" rel="noopener noreferrer" style="text-decoration: underline">sighack.com</a>
+- Wikipedia. *Supersampling.* <a href="https://en.wikipedia.org/wiki/Supersampling" target="_blank" rel="noopener noreferrer" style="text-decoration: underline">en.wikipedia.org</a>
+- Sebastian Lague. *Procedural Object Placement (E01: Poisson disk sampling).* <a href="https://www.youtube.com/watch?v=7WcmyxyFO7o" target="_blank" rel="noopener noreferrer" style="text-decoration: underline">youtube.com</a>
+- Daniel Shiffman. *Coding Challenge #33: Poisson-disc Sampling.* The Coding Train. <a href="https://thecodingtrain.com/challenges/33-poisson-disc-sampling" target="_blank" rel="noopener noreferrer" style="text-decoration: underline">thecodingtrain.com</a>
