@@ -55,9 +55,13 @@ const ogImageURL = ogImage && Astro.site ? new URL(ogImage, Astro.site).href : n
     </head>
 
     <body>
+        <a class="skip-link" href="#main-content">Skip to content</a>
+
         <Header />
 
-        <slot />
+        <div id="main-content" tabindex="-1">
+            <slot />
+        </div>
 
         <Footer />
     </body>

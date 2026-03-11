@@ -23,7 +23,7 @@ const codeId = `shader-code-${id}`;
         <div id={editorId} class="editor"></div>
 
         <div class="shader-preview">
-            <canvas id={canvasId}></canvas>
+            <canvas id={canvasId} aria-label="Live shader preview"></canvas>
         </div>
     </div>
 
@@ -31,7 +31,7 @@ const codeId = `shader-code-${id}`;
         <button id={resetId}>Reset shader</button>
     </div>
 
-    <div id={errorId} class="shader-error"></div>
+    <div id={errorId} class="shader-error" role="alert" aria-live="polite"></div>
 </div>
 
 <script>

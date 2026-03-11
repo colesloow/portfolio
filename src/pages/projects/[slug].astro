@@ -39,17 +39,17 @@ const { Content } = await project.render();
             )
         }
 
-        <div id="lightbox" class="lightbox">
-            <button class="lightbox-prev" id="lightbox-prev">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+            <button class="lightbox-prev" id="lightbox-prev" aria-label="Previous image">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
             </button>
 
-            <img id="lightbox-img" />
+            <img id="lightbox-img" alt="" />
 
-            <button class="lightbox-next" id="lightbox-next">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <button class="lightbox-next" id="lightbox-next" aria-label="Next image">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
             </button>

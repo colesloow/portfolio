@@ -23,6 +23,7 @@
         if (!button) return;
         const isLight = document.documentElement.classList.contains("light");
         button.innerHTML = isLight ? sunSVG : moonSVG;
+        button.setAttribute("aria-label", isLight ? "Switch to dark mode" : "Switch to light mode");
     }
 
     updateIcon();
