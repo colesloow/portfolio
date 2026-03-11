@@ -3,15 +3,15 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import ProjectCard from "../../components/ProjectCard.astro";
 import { getCollection } from "astro:content";
 
-const projects = await getCollection("projects", ({ data }) => !data.draft);
+const works = await getCollection("works", ({ data }) => !data.draft);
 ---
 
-<BaseLayout title="Projects">
+<BaseLayout title="Works">
     <main class="container">
-        <h1>Projects</h1>
+        <h1>Works</h1>
 
         <div class="masonry">
-            {projects.map((project) => <ProjectCard project={project} />)}
+            {works.map((work) => <ProjectCard project={work} />)}
         </div>
     </main>
 </BaseLayout>
