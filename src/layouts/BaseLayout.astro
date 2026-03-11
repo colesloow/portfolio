@@ -41,6 +41,8 @@ const ogImageURL = ogImage && Astro.site ? new URL(ogImage, Astro.site).href : n
         <meta name="twitter:description" content={description} />
         {ogImageURL && <meta name="twitter:image" content={ogImageURL} />}
 
+        <link rel="alternate" type="application/rss+xml" title="Colin Veron" href="/rss.xml" />
+
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
 
         <script>
