@@ -36,6 +36,11 @@ const { steps } = Astro.props as { steps: Step[] };
         <div class="stepper-visual">
             <slot name="visual" />
         </div>
+        <div class="stepper-nav">
+            <button class="nav-btn prev-btn" disabled aria-label="Previous step">← Previous</button>
+            <span class="step-counter" aria-hidden="true">1 / {steps.length}</span>
+            <button class="nav-btn next-btn" aria-label="Next step">Next →</button>
+        </div>
         <div
             id="stepper-desc"
             class="stepper-desc"
@@ -44,10 +49,6 @@ const { steps } = Astro.props as { steps: Step[] };
             aria-atomic="true"
             set:html={steps[0].description}
         ></div>
-        <div class="stepper-nav">
-            <button class="nav-btn prev-btn" disabled aria-label="Previous step">← Previous</button>
-            <button class="nav-btn next-btn" aria-label="Next step">Next →</button>
-        </div>
     </div>
 </div>
 
@@ -60,6 +61,8 @@ const { steps } = Astro.props as { steps: Step[] };
         const nextBtn = el.querySelector<HTMLButtonElement>(".next-btn")!;
         let current = 0;
 
+        const counter = el.querySelector<HTMLElement>(".step-counter")!;
+
         function go(idx: number) {
             current = idx;
             stepBtns.forEach((btn, i) => {
@@ -67,6 +70,7 @@ const { steps } = Astro.props as { steps: Step[] };
                 btn.setAttribute("aria-selected", String(i === idx));
             });
             desc.innerHTML = descriptions[idx];
+            counter.textContent = `${idx + 1} / ${descriptions.length}`;
             prevBtn.disabled = idx === 0;
             nextBtn.disabled = idx === descriptions.length - 1;
             el.dispatchEvent(
@@ -203,6 +207,16 @@ const { steps } = Astro.props as { steps: Step[] };
         display: flex;
         gap: 8px;
         justify-content: flex-end;
+        align-items: center;
+    }
+
+    .step-counter {
+        display: none;
+        font-family: monospace;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        flex: 1;
+        text-align: center;
     }
 
     .nav-btn {
@@ -235,19 +249,15 @@ const { steps } = Astro.props as { steps: Step[] };
         }
 
         .stepper-panel {
-            flex-direction: row;
-            overflow-x: auto;
-            padding-bottom: 4px;
-            gap: 5px;
-        }
-
-        .step-btn {
-            flex-shrink: 0;
-            min-width: 120px;
-        }
-
-        .step-sub {
             display: none;
+        }
+
+        .step-counter {
+            display: block;
+        }
+
+        .stepper-nav {
+            justify-content: space-between;
         }
     }
 </style>
