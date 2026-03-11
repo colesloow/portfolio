@@ -45,12 +45,17 @@ const { Content } = await article.render();
     document.querySelectorAll<HTMLElement>(".article-content pre").forEach((pre) => {
         if (pre.scrollHeight > THRESHOLD + 20) {
             pre.classList.add("collapsed");
+            const lang = pre.dataset.language ?? "code";
             const btn = document.createElement("button");
             btn.textContent = "Show more";
             btn.className = "code-expand-btn";
+            btn.setAttribute("aria-expanded", "false");
+            btn.setAttribute("aria-label", `Show more of this ${lang} block`);
             btn.addEventListener("click", () => {
                 const collapsed = pre.classList.toggle("collapsed");
                 btn.textContent = collapsed ? "Show more" : "Show less";
+                btn.setAttribute("aria-expanded", String(!collapsed));
+                btn.setAttribute("aria-label", collapsed ? `Show more of this ${lang} block` : `Show less of this ${lang} block`);
             });
             pre.insertAdjacentElement("afterend", btn);
         }

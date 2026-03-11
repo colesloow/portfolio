@@ -11,11 +11,19 @@ const { steps } = Astro.props as { steps: Step[] };
 <div
     class="stepper"
     data-descriptions={JSON.stringify(steps.map((s) => s.description))}
+    role="region"
+    aria-label="Step-by-step walkthrough"
 >
-    <div class="stepper-panel">
+    <div class="stepper-panel" role="tablist" aria-label="Steps">
         {
             steps.map((step, i) => (
-                <button class:list={["step-btn", { active: i === 0 }]} data-idx={i}>
+                <button
+                    class:list={["step-btn", { active: i === 0 }]}
+                    data-idx={i}
+                    role="tab"
+                    aria-selected={i === 0 ? "true" : "false"}
+                    aria-controls="stepper-desc"
+                >
                     <div class="step-num">STEP {i + 1}</div>
                     <div class="step-title">{step.title}</div>
                     {step.subtitle && <div class="step-sub">{step.subtitle}</div>}
@@ -28,10 +36,17 @@ const { steps } = Astro.props as { steps: Step[] };
         <div class="stepper-visual">
             <slot name="visual" />
         </div>
-        <div class="stepper-desc" set:html={steps[0].description}></div>
+        <div
+            id="stepper-desc"
+            class="stepper-desc"
+            role="tabpanel"
+            aria-live="polite"
+            aria-atomic="true"
+            set:html={steps[0].description}
+        ></div>
         <div class="stepper-nav">
-            <button class="nav-btn prev-btn" disabled>← Previous</button>
-            <button class="nav-btn next-btn">Next →</button>
+            <button class="nav-btn prev-btn" disabled aria-label="Previous step">← Previous</button>
+            <button class="nav-btn next-btn" aria-label="Next step">Next →</button>
         </div>
     </div>
 </div>
@@ -47,7 +62,10 @@ const { steps } = Astro.props as { steps: Step[] };
 
         function go(idx: number) {
             current = idx;
-            stepBtns.forEach((btn, i) => btn.classList.toggle("active", i === idx));
+            stepBtns.forEach((btn, i) => {
+                btn.classList.toggle("active", i === idx);
+                btn.setAttribute("aria-selected", String(i === idx));
+            });
             desc.innerHTML = descriptions[idx];
             prevBtn.disabled = idx === 0;
             nextBtn.disabled = idx === descriptions.length - 1;

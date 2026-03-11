@@ -64,7 +64,14 @@ The result is a <strong>maximal Poisson disc packing</strong>. This distribution
 ---
 
 <Stepper {steps}>
-    <canvas slot="visual" data-poisson-canvas width="500" height="500"></canvas>
+    <canvas
+        slot="visual"
+        data-poisson-canvas
+        width="500"
+        height="500"
+        role="img"
+        aria-label="Step 1: The background grid. An invisible grid covers the canvas with cells of size r divided by the square root of 2, enabling constant-time neighbor lookups."
+    ></canvas>
 </Stepper>
 
 <script>
@@ -471,11 +478,22 @@ The result is a <strong>maximal Poisson disc packing</strong>. This distribution
             // Initial draw
             drawFns[0]();
 
+            const stepLabels = [
+                "Step 1: The background grid. An invisible grid covers the canvas with cells of size r divided by the square root of 2, enabling constant-time neighbor lookups.",
+                "Step 2: Seed point. One point is placed at random and added to the active list.",
+                "Step 3: The sampling ring. A candidate is generated in the ring between r and 2r around an active point.",
+                "Step 4: Validating a candidate. Nearby grid cells are checked; the candidate is accepted if no existing point is closer than r, rejected otherwise.",
+                "Step 5: Exhaustion. After 30 failed attempts, the active point is removed from the active list.",
+                "Step 6: Color propagation. Accepted points inherit their parent's color, with lines drawn between parent and child.",
+                "Step 7: Full saturation. The active list is empty; the canvas is maximally packed with blue noise.",
+            ];
+
             // Listen for step changes from the parent Stepper
             canvas.closest(".stepper")!.addEventListener(
                 "stepper:change",
                 ((e: CustomEvent<{ step: number }>) => {
                     drawFns[e.detail.step]?.();
+                    canvas.setAttribute("aria-label", stepLabels[e.detail.step] ?? "");
                 }) as EventListener
             );
         }
