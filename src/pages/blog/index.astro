@@ -8,7 +8,7 @@ const articles = await getCollection("blog");
 articles.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
 
-<BaseLayout>
+<BaseLayout title="Blog">
     <main class="container">
         <h1>Blog</h1>
 
