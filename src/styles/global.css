@@ -42,6 +42,15 @@ THEME VARIABLES
     --accent: #0891b2;
 }
 
+::selection {
+    background: var(--accent);
+    color: black;
+}
+
+.light ::selection {
+    color: white;
+}
+
 /* =========================================================
 GLOBAL LAYOUT
 ========================================================= */

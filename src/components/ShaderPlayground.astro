@@ -102,6 +102,10 @@ const codeId = `shader-code-${id}`;
         font-size: 13px;
     }
 
+    :global(.light) .shader-controls button {
+        color: white;
+    }
+
     .shader-controls button:hover {
         filter: brightness(1.1);
     }
@@ -120,6 +124,12 @@ const codeId = `shader-code-${id}`;
 
         font-size: 14px;
         display: none;
+    }
+
+    :global(.light) .shader-error {
+        background: rgba(255, 0, 100, 0.1);
+        color: #b5004a;
+        border-color: rgba(255, 0, 100, 0.4);
     }
 
     /* editor tweaks */
