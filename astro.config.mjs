@@ -9,7 +9,7 @@ import remarkShader from "./src/remark/remarkShader.ts";
 import remarkCode from "./src/remark/remarkCode.ts";
 
 export default defineConfig({
-    site: "https://coleslow-portfolio.netlify.app",
+    site: "https://coleslow.dev",
     integrations: [
         mdx({
             extendMarkdownConfig: false,
