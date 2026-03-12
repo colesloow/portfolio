@@ -1,0 +1,27 @@
+---
+title: Raymarching Bubbles
+description: Animated metaballs rendered in real time via raymarching - smooth union SDF blending sixteen spheres into a single flowing surface, shaded with Blinn-Phong lighting.
+date: 2024-06-01
+
+thumbnail: ../../assets/images/projects/bubbles/cover.png
+
+tags:
+    - GLSL
+    - Raymarching
+    - WebGL
+    - Generative
+
+---
+
+import ShaderPreview from '../../components/ShaderPreview.astro';
+import bubblesGlsl from '../../shaders/bubbles.glsl?raw';
+
+<ShaderPreview code={bubblesGlsl} />
+
+Sixteen spheres move independently through a bounded volume, each following a path driven by overlapping sine waves with unique frequencies and phases. Their surfaces are blended together using a smooth minimum operator, so adjacent spheres merge and separate fluidly rather than intersecting with hard edges.
+
+The geometry is never stored explicitly. At every pixel, a ray is cast from the camera and marched forward in steps until it either hits the implicit surface or exits the scene. The surface normal is derived analytically from the gradient of the distance field, which makes it possible to apply standard Blinn-Phong shading directly.
+
+Color is assigned per-sphere from a fixed three-value palette and interpolated during the smooth union, so the merged regions carry a blend of the colors of the spheres involved.
+
+The canvas above runs directly in the browser via WebGL. The same GLSL fragment shader can be dropped into any WebGL context, Shadertoy, or game engine that exposes a fragment shader stage.
