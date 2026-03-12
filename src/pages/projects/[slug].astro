@@ -21,7 +21,11 @@ const { Content } = await project.render();
         {
             project.data.gallery && project.data.gallery.length > 0 && (
                 <section class="project-cover">
-                    <Image src={project.data.gallery[0]} alt={project.data.title} class="gallery-img" />
+                    <Image
+                        src={project.data.gallery[0]}
+                        alt={`${project.data.title} - cover image`}
+                        class="gallery-img"
+                    />
                 </section>
             )
         }
@@ -40,15 +44,19 @@ const { Content } = await project.render();
 
         {
             project.data.gallery && project.data.gallery.length > 1 && (
-                <section class="project-gallery">
-                    {project.data.gallery.slice(1).map((img) => (
-                        <Image src={img} alt={project.data.title} class="gallery-img" />
+                <section class="project-gallery" aria-label="Project images">
+                    {project.data.gallery.slice(1).map((img, i) => (
+                        <Image
+                            src={img}
+                            alt={`${project.data.title} - image ${i + 2}`}
+                            class="gallery-img"
+                        />
                     ))}
                 </section>
             )
         }
 
-        <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+        <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" hidden>
             <button class="lightbox-prev" id="lightbox-prev" aria-label="Previous image">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="15 18 9 12 15 6"></polyline>
@@ -66,7 +74,7 @@ const { Content } = await project.render();
 
         {
             project.data.tags && (
-                <ul class="project-tags">
+                <ul class="project-tags" aria-label="Tags">
                     {project.data.tags.map((tag) => (
                         <li>{tag}</li>
                     ))}
@@ -98,7 +106,16 @@ const { Content } = await project.render();
                             </svg>
                         </a>
                     )}
-                    {project.data.links.demo && <a href={project.data.links.demo} target="_blank" rel="noopener noreferrer">Demo</a>}
+                    {project.data.links.demo && (
+                        <a
+                            href={project.data.links.demo}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="View live demo, opens in new tab"
+                        >
+                            Demo
+                        </a>
+                    )}
                 </div>
             )
         }
@@ -180,6 +197,11 @@ const { Content } = await project.render();
         color: var(--text);
     }
 
+    .github-cta:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
     .github-logo {
         width: 28px;
         height: 28px;
@@ -231,6 +253,13 @@ const { Content } = await project.render();
         display: block;
     }
 
+    /* Keyboard focus indicator on interactive gallery images */
+    .gallery-img:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 8px;
+    }
+
     .lightbox {
         position: fixed;
         inset: 0;
@@ -242,6 +271,11 @@ const { Content } = await project.render();
         justify-content: center;
 
         z-index: 2000;
+    }
+
+    /* hidden attribute overrides display:none but we also use JS; keep in sync */
+    .lightbox:not([hidden]) {
+        display: flex;
     }
 
     .lightbox img {
@@ -284,6 +318,11 @@ const { Content } = await project.render();
         background: rgba(0, 0, 0, 0.7);
     }
 
+    .lightbox button:focus-visible {
+        outline: 2px solid white;
+        outline-offset: 2px;
+    }
+
     @media (max-width: 900px) {
         .project-gallery {
             columns: 2;
@@ -303,10 +342,11 @@ const { Content } = await project.render();
     const lightbox = document.getElementById("lightbox");
     const lightboxImg = document.getElementById("lightbox-img") as HTMLImageElement | null;
 
-    const prevBtn = document.getElementById("lightbox-prev");
-    const nextBtn = document.getElementById("lightbox-next");
+    const prevBtn = document.getElementById("lightbox-prev") as HTMLButtonElement | null;
+    const nextBtn = document.getElementById("lightbox-next") as HTMLButtonElement | null;
 
     let currentIndex = 0;
+    let lastFocused: HTMLElement | null = null;
 
     function showImage(index: number) {
         if (!lightboxImg) return;
@@ -315,50 +355,61 @@ const { Content } = await project.render();
 
         const img = images[index];
         lightboxImg.src = img.src;
+        lightboxImg.alt = img.alt;
+    }
+
+    function openLightbox(index: number, trigger: HTMLElement) {
+        if (!lightbox || !prevBtn) return;
+        lastFocused = trigger;
+        lightbox.removeAttribute("hidden");
+        lightbox.style.display = "flex";
+        showImage(index);
+        prevBtn.focus();
+    }
+
+    function closeLightbox() {
+        if (!lightbox) return;
+        lightbox.setAttribute("hidden", "");
+        lightbox.style.display = "none";
+        if (lastFocused) lastFocused.focus();
     }
 
     if (lightbox && lightboxImg && prevBtn && nextBtn) {
+        // Make each gallery image reachable and activatable via keyboard
         images.forEach((img, index) => {
-            img.addEventListener("click", () => {
-                lightbox.style.display = "flex";
-                showImage(index);
+            img.setAttribute("tabindex", "0");
+            img.setAttribute("role", "button");
+
+            img.addEventListener("click", () => openLightbox(index, img));
+
+            img.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openLightbox(index, img);
+                }
             });
         });
 
         prevBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-
-            const newIndex = (currentIndex - 1 + images.length) % images.length;
-            showImage(newIndex);
+            showImage((currentIndex - 1 + images.length) % images.length);
         });
 
         nextBtn.addEventListener("click", (e) => {
             e.stopPropagation();
-
-            const newIndex = (currentIndex + 1) % images.length;
-            showImage(newIndex);
+            showImage((currentIndex + 1) % images.length);
         });
 
-        lightbox.addEventListener("click", () => {
-            lightbox.style.display = "none";
+        lightbox.addEventListener("click", (e) => {
+            if (e.target === lightbox) closeLightbox();
         });
 
         document.addEventListener("keydown", (e) => {
             if (lightbox.style.display !== "flex") return;
 
-            if (e.key === "ArrowRight") {
-                const newIndex = (currentIndex + 1) % images.length;
-                showImage(newIndex);
-            }
-
-            if (e.key === "ArrowLeft") {
-                const newIndex = (currentIndex - 1 + images.length) % images.length;
-                showImage(newIndex);
-            }
-
-            if (e.key === "Escape") {
-                lightbox.style.display = "none";
-            }
+            if (e.key === "ArrowRight") showImage((currentIndex + 1) % images.length);
+            if (e.key === "ArrowLeft") showImage((currentIndex - 1 + images.length) % images.length);
+            if (e.key === "Escape") closeLightbox();
         });
     }
 </script>

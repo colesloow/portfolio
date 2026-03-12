@@ -61,6 +61,30 @@ const { project } = Astro.props;
         animation: shader-flow 4s linear infinite;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+        .project-card a:hover h2 {
+            animation: none;
+            background: none;
+            -webkit-background-clip: unset;
+            background-clip: unset;
+            color: inherit;
+        }
+
+        .project-card {
+            transition: none;
+        }
+
+        .thumbnail img {
+            transition: none;
+        }
+    }
+
+    .project-card a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 4px;
+    }
+
     .thumbnail {
         aspect-ratio: 16 / 9;
         overflow: hidden;

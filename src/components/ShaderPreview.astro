@@ -8,7 +8,7 @@ const canvasId = `shader-${Math.random().toString(36).slice(2)}`;
 ---
 
 <div class="shader-preview">
-    <canvas id={canvasId}></canvas>
+    <canvas id={canvasId} role="img" aria-label="Live shader animation"></canvas>
 </div>
 
 <style>
@@ -21,6 +21,11 @@ const canvasId = `shader-${Math.random().toString(36).slice(2)}`;
         height: 400px;
         border-radius: 10px;
         background: transparent;
+    }
+
+    :global(.shader-error) {
+        color: var(--text-muted);
+        font-style: italic;
     }
 </style>
 
@@ -36,7 +41,8 @@ const canvasId = `shader-${Math.random().toString(36).slice(2)}`;
         const gl = canvas.getContext("webgl");
 
         if (!gl) {
-            console.error("WebGL not supported");
+            canvas.insertAdjacentHTML("afterend", "<p class='shader-error'>WebGL is not supported in this browser.</p>");
+            canvas.remove();
             return;
         }
 
