@@ -9,7 +9,7 @@ import remarkShader from "./src/remark/remarkShader.ts";
 import remarkCode from "./src/remark/remarkCode.ts";
 
 export default defineConfig({
-    site: "https://your-site.netlify.app", // update with your actual domain once deployed
+    site: "https://coleslow-portfolio.netlify.app",
     integrations: [
         mdx({
             extendMarkdownConfig: false,
