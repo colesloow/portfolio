@@ -34,6 +34,10 @@ const { Content } = await project.render();
             </p>
         </section>
 
+        <article class="project-content">
+            <Content />
+        </article>
+
         {
             project.data.gallery && project.data.gallery.length > 1 && (
                 <section class="project-gallery">
@@ -99,9 +103,6 @@ const { Content } = await project.render();
             )
         }
 
-        <article class="project-content">
-            <Content />
-        </article>
     </main>
 </BaseLayout>
 
@@ -131,6 +132,13 @@ const { Content } = await project.render();
 
     .project-description {
         color: var(--text-muted);
+    }
+
+    /* Override the article-level constraints for project body text */
+    .project-content {
+        max-width: none;
+        margin: 16px 0 0 0;
+        padding: 0;
     }
 
     .project-tags {

@@ -18,3 +18,7 @@ gallery:
     - ../../assets/images/projects/fault-lines/capt4.jpg
     - ../../assets/images/projects/fault-lines/capt5.jpg
 ---
+
+The algorithm reads each pixel's luminance value and uses it to displace its neighbors, then repeats. What begins as a sharp landscape gradually fractures, the image following stress lines only the program can see.
+
+After enough iterations, horizontal bands emerge, strata separate, and the original scene becomes unrecognizable. The structure of light and shadow in the source material still dictates exactly where the fractures form.
