@@ -20,6 +20,7 @@ export function initShaderPlayground({ canvasId, editorId, errorId, resetId, cod
     const errorBox = document.getElementById(errorId)!;
     const resetBtn = document.getElementById(resetId)!;
 
+    // Compartment allows swapping the theme extension at runtime without rebuilding the editor
     const themeCompartment = new Compartment();
 
     const runtime = createShaderRuntime(canvas, errorBox, code);
@@ -29,7 +30,7 @@ export function initShaderPlayground({ canvasId, editorId, errorId, resetId, cod
             doc: code,
             extensions: [
                 basicSetup,
-                cpp(),
+                cpp(), // GLSL syntax is close enough to C++ for reasonable highlighting
                 EditorView.lineWrapping,
                 themeCompartment.of(getThemeExtensions()),
                 EditorView.updateListener.of((update) => {
@@ -42,6 +43,7 @@ export function initShaderPlayground({ canvasId, editorId, errorId, resetId, cod
         parent: editorRoot,
     });
 
+    // Reset replaces the entire document content with the original shader code
     resetBtn.addEventListener("click", () => {
         editor.dispatch({
             changes: {
@@ -52,6 +54,7 @@ export function initShaderPlayground({ canvasId, editorId, errorId, resetId, cod
         });
     });
 
+    // Re-apply the correct theme whenever the site theme toggles
     onThemeChange(() => {
         editor.dispatch({
             effects: themeCompartment.reconfigure(getThemeExtensions()),

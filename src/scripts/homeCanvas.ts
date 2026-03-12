@@ -1,13 +1,19 @@
+// Home page interactive canvas.
+// Implements Bridson's Poisson disc sampling algorithm with color inheritance:
+// each click plants 5 seed points in a cross pattern, all sharing the same color.
+// Child points inherit their parent's color and are connected by a visible line,
+// producing a colored spanning tree that fills the canvas.
+
 const canvas = document.getElementById("home-canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 const COLORS = ["#6050dc", "#ffd800", "#ff4f00", "#0081f7", "#9ed8ff", "#ffc4ed"];
 let shuffledColors = [...COLORS];
 
-let R = 5;
-let K = 30;
-let W = R / Math.sqrt(2);
-let MARGIN = R * 1.3;
+let R = 5;           // minimum distance between any two points
+let K = 30;          // max candidate attempts before removing a point from the active list
+let W = R / Math.sqrt(2); // grid cell size: guarantees at most one point per cell
+let MARGIN = R * 1.3;     // keeps seeds and points away from the canvas border
 let strokeWidth = 2;
 
 let grid: ({ x: number; y: number } | undefined)[][] = [];
@@ -133,6 +139,8 @@ document.head.appendChild(sharedStyle);
 (canvas.parentElement as HTMLElement).style.position = "relative";
 
 // --- Hint ripple ---
+// Shows animated ripple rings at random positions to suggest the canvas is interactive.
+// Stops permanently on the first click.
 
 let hintActive = true;
 let hintTimeout = 0;
@@ -146,6 +154,7 @@ function spawnHintRipple() {
     const x = MARGIN + Math.random() * (canvas.width - 2 * MARGIN);
     const y = MARGIN + Math.random() * (canvas.height - 2 * MARGIN);
 
+    // Scale from canvas resolution to CSS display size
     const scaleX = canvas.clientWidth / canvas.width;
     const scaleY = canvas.clientHeight / canvas.height;
 
@@ -153,6 +162,7 @@ function spawnHintRipple() {
     wrapper.className = "canvas-hint";
     wrapper.style.cssText = `position:absolute;left:${x * scaleX}px;top:${y * scaleY}px;width:0;height:0;pointer-events:none;`;
 
+    // Two rings with a staggered delay for a double-pulse effect
     [0, 350].forEach((delay) => {
         const ring = document.createElement("div");
         ring.style.cssText = `
@@ -227,6 +237,7 @@ function createControls() {
         ctx.lineWidth = strokeWidth;
     }));
 
+    // Changing R recomputes W and MARGIN, then restarts the simulation
     drawer.appendChild(makeSlider("R", 2, 16, 1, R, (v) => {
         R = v;
         W = R / Math.sqrt(2);
@@ -269,7 +280,7 @@ function createControls() {
     wrapper.appendChild(toggle);
     parent.appendChild(wrapper);
 
-    // Measure drawer height after mount to set initial offset
+    // Measure drawer height after mount to set the correct slide-up offset
     requestAnimationFrame(() => {
         const drawerH = drawer.offsetHeight;
         wrapper.style.setProperty("--drawer-offset", `-${drawerH}px`);
@@ -320,10 +331,12 @@ function init() {
     nCols = Math.floor(canvas.width / W);
     nRows = Math.floor(canvas.height / W);
 
+    // 2D grid indexed by [row][col]; each cell holds at most one point
     grid = Array.from({ length: nRows }, () => new Array(nCols).fill(undefined));
     active = [];
     colorIndex = 0;
 
+    // Shuffle colors so the order varies each reset
     shuffledColors = [...COLORS];
     for (let i = shuffledColors.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -338,6 +351,8 @@ function init() {
 }
 
 function loop() {
+    // Process more steps when the active list is small to keep the animation
+    // feeling continuous; slow down when many points compete for the CPU.
     const stepsPerFrame = Math.min(80, Math.max(25, Math.floor(400 / Math.max(active.length, 1))));
     for (let step = 0; step < stepsPerFrame; step++) {
         if (active.length === 0) return;
@@ -348,7 +363,7 @@ function loop() {
 
         for (let n = 0; n < K; n++) {
             const unit = randomUnit();
-            const m = R + Math.random() * R;
+            const m = R + Math.random() * R; // random distance in [R, 2R]
             const sample = { x: unit.x * m + pos.x, y: unit.y * m + pos.y };
 
             const col = Math.floor(sample.x / W);
@@ -356,6 +371,8 @@ function loop() {
 
             if (!inBounds(sample.x, sample.y) || col < 0 || row < 0 || col >= nCols || row >= nRows || grid[row][col]) continue;
 
+            // Check the 5x5 block of cells around the candidate.
+            // Because W = R/sqrt(2), any point within distance R must be in this block.
             let ok = true;
             outer: for (let i = Math.max(row - 2, 0); i <= Math.min(row + 2, nRows - 1); i++) {
                 for (let j = Math.max(col - 2, 0); j <= Math.min(col + 2, nCols - 1); j++) {
@@ -372,6 +389,7 @@ function loop() {
                 grid[row][col] = sample;
                 active.push({ pos: sample, color });
 
+                // Draw a line from parent to child to visualize the spanning tree
                 ctx.strokeStyle = color;
                 ctx.beginPath();
                 ctx.moveTo(pos.x, pos.y);
@@ -388,6 +406,8 @@ function loop() {
     animId = requestAnimationFrame(loop);
 }
 
+// Tries to insert a single seed point at (sx, sy) with the given color.
+// Returns false if the position is out of bounds or too close to an existing point.
 function tryPlaceSeed(sx: number, sy: number, color: string): boolean {
     if (!inBounds(sx, sy)) return false;
     const col = Math.floor(sx / W);
@@ -409,12 +429,15 @@ function tryPlaceSeed(sx: number, sy: number, color: string): boolean {
 
 canvas.addEventListener("click", (e) => {
     const rect = canvas.getBoundingClientRect();
+    // Convert CSS pixel coordinates to canvas resolution coordinates
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
 
     const color = shuffledColors[colorIndex % shuffledColors.length];
     colorIndex++;
 
+    // Plant 5 seeds in a cross pattern around the click point,
+    // all sharing the same color so they form a single connected region.
     const spread = R * 8;
     const candidates = [
         { x, y },
@@ -439,14 +462,14 @@ canvas.addEventListener("contextmenu", (e) => {
     init();
 });
 
-// Responsive: redraw on resize
+// Responsive: debounce resize to avoid thrashing during window drag
 let resizeTimer = 0;
 new ResizeObserver(() => {
     clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => { init(); createControls(); }, 100);
 }).observe(canvas.parentElement!);
 
-// Theme-aware: restart when theme changes
+// Theme-aware: restart when the theme class on <html> changes so the background color updates
 new MutationObserver(() => { init(); }).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["class"],

@@ -1,4 +1,8 @@
 ---
+// CodeBlock: read-only syntax-highlighted code viewer powered by CodeMirror.
+// The raw code string is embedded in a <script type="text/plain"> tag at build time
+// and retrieved by the client script, avoiding the need to escape HTML entities.
+// Blocks taller than THRESHOLD pixels are collapsed with a fade and a "Show more" button.
 const { code, lang = "text" } = Astro.props;
 
 const id = Math.random().toString(36).slice(2);
@@ -46,6 +50,7 @@ const displayLang = langLabels[lang] ?? (lang !== "text" ? lang.toUpperCase() : 
             case "cpp":
             case "c++":
             case "csharp":
+                // C# uses the C++ parser: syntax is close enough for reasonable highlighting
                 return cpp();
             default:
                 return [];

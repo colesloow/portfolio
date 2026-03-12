@@ -1,3 +1,11 @@
+// Remark plugin: transforms fenced GLSL code blocks marked with meta="live" in MDX
+// into <ShaderPlayground> component instances.
+// Only blocks matching both lang="glsl" and meta="live" are processed; all others are
+// left for remarkCode to handle.
+// If any such block is found, a ShaderPlayground import is injected at the top of the file.
+
+// Wraps a string value in the AST structure required for an MDX JSX attribute expression.
+// See remarkCode.ts for a full explanation.
 function makeStringExpression(value: string) {
     return {
         type: "mdxJsxAttributeValueExpression",
@@ -50,6 +58,7 @@ export default function remarkShader() {
         visit(tree, null);
 
         if (found) {
+            // Avoid duplicate imports if ShaderPlayground is already imported manually
             const alreadyImported = tree.children.some(
                 (n: any) =>
                     n.type === "mdxjsEsm" &&

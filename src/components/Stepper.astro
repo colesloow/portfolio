@@ -1,4 +1,11 @@
 ---
+// Stepper: generic step-by-step walkthrough component.
+// The step panel on the left lists all steps for direct navigation.
+// The main area holds a named slot "visual" (typically a canvas) and a description panel.
+// Navigation dispatches a "stepper:change" CustomEvent on the .stepper element so that
+// child components can react by updating the visual independently.
+// On mobile the step panel is hidden; a "X / N" counter replaces it.
+
 export interface Step {
     title: string;
     subtitle?: string;
@@ -48,12 +55,14 @@ const { steps } = Astro.props as { steps: Step[] };
             aria-live="polite"
             aria-atomic="true"
             set:html={steps[0].description}
-        ></div>
+        />
     </div>
 </div>
 
 <script>
     document.querySelectorAll<HTMLElement>(".stepper").forEach((el) => {
+        // Descriptions are serialized into a data attribute at build time to avoid
+        // inline script islands and keep the component self-contained
         const descriptions: string[] = JSON.parse(el.dataset.descriptions!);
         const stepBtns = el.querySelectorAll<HTMLElement>(".step-btn");
         const desc = el.querySelector<HTMLElement>(".stepper-desc")!;
@@ -73,9 +82,7 @@ const { steps } = Astro.props as { steps: Step[] };
             counter.textContent = `${idx + 1} / ${descriptions.length}`;
             prevBtn.disabled = idx === 0;
             nextBtn.disabled = idx === descriptions.length - 1;
-            el.dispatchEvent(
-                new CustomEvent("stepper:change", { detail: { step: idx } })
-            );
+            el.dispatchEvent(new CustomEvent("stepper:change", { detail: { step: idx } }));
         }
 
         stepBtns.forEach((btn, i) => btn.addEventListener("click", () => go(i)));
@@ -111,7 +118,9 @@ const { steps } = Astro.props as { steps: Step[] };
         color: var(--text);
         font-family: monospace;
         width: 100%;
-        transition: border-color 0.15s, background 0.15s;
+        transition:
+            border-color 0.15s,
+            background 0.15s;
     }
 
     .step-btn:hover {
@@ -228,7 +237,9 @@ const { steps } = Astro.props as { steps: Step[] };
         font-size: 0.75rem;
         color: var(--text);
         cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
+        transition:
+            border-color 0.15s,
+            color 0.15s;
     }
 
     .nav-btn:hover:not(:disabled) {

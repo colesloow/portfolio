@@ -1,3 +1,11 @@
+// Remark plugin: transforms fenced code blocks in MDX into <CodeBlock> component instances.
+// Skips GLSL blocks with meta="live", which are handled by remarkShader instead.
+// If any code block is found and CodeBlock is not already imported, an import declaration
+// is injected at the top of the MDX file's ESM section.
+
+// Wraps a string value in the AST structure required for an MDX JSX attribute expression.
+// This is needed because MDX attributes cannot use plain string values for dynamic content;
+// they require an ESTree-compatible expression node.
 function makeStringExpression(value: string) {
     return {
         type: "mdxJsxAttributeValueExpression",
@@ -56,6 +64,7 @@ export default function remarkCode() {
         visit(tree, null);
 
         if (found) {
+            // Avoid duplicate imports if the MDX file already imports CodeBlock manually
             const alreadyImported = tree.children.some(
                 (n: any) =>
                     n.type === "mdxjsEsm" &&

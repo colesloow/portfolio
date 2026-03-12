@@ -1,4 +1,13 @@
 ---
+// PoissonStepper: extends Stepper with a canvas visual that illustrates each step
+// of Bridson's Poisson disc sampling algorithm.
+//
+// The full simulation runs once at component load time using a deterministic RNG
+// (mulberry32, seed 42) so every page view shows the same result. The resulting
+// allPoints array is then sliced and drawn differently for each of the 7 steps.
+//
+// Each draw function is stored in drawFns[] and triggered by the "stepper:change"
+// CustomEvent dispatched by the parent Stepper component.
 import Stepper from "./Stepper.astro";
 import type { Step } from "./Stepper.astro";
 
@@ -92,7 +101,8 @@ The result is a <strong>maximal Poisson disc packing</strong>. This distribution
             const PURPLE = "#a78bfa";
             const SEED_COLORS = [PURPLE, ACCENT];
 
-            // Deterministic RNG (seed 42)
+            // Mulberry32: fast, good-quality 32-bit PRNG. Seed 42 ensures the same
+            // point layout every time the page loads, making the steps reproducible.
             let _seed = 42;
             function rng() {
                 _seed |= 0;
@@ -102,7 +112,9 @@ The result is a <strong>maximal Poisson disc packing</strong>. This distribution
                 return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
             }
 
-            // Simulation
+            // Simulation parameters
+            // CW = cell width: R/sqrt(2) guarantees at most one point per grid cell,
+            // which bounds neighbor checks to a 5x5 block regardless of point count.
             const R = 28;
             const CW = R / Math.sqrt(2);
             const NC = Math.floor(W / CW);

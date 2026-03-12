@@ -1,3 +1,7 @@
+// CodeMirror theme definitions for dark and light site themes.
+// Both a base theme (background, gutter, cursor) and a highlight style (token colors)
+// are defined for each mode and returned together as an extension array.
+
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
@@ -46,12 +50,15 @@ const lightHighlight = HighlightStyle.define([
     { tag: t.operator, color: "#be123c" },
 ]);
 
+// Returns the correct [theme, highlight] extension pair for the current site theme
 export function getThemeExtensions() {
     const isLight = document.documentElement.classList.contains("light");
 
     return isLight ? [lightTheme, syntaxHighlighting(lightHighlight)] : [darkTheme, syntaxHighlighting(darkHighlight)];
 }
 
+// Shared callback list and a single MutationObserver watching the <html> class attribute.
+// A single observer is created lazily on the first call and reused for all editors.
 const themeCallbacks: (() => void)[] = [];
 let themeObserver: MutationObserver | null = null;
 

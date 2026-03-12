@@ -1,4 +1,8 @@
 ---
+// ShaderPlayground: live GLSL editor paired with a WebGL canvas preview.
+// The initial shader code is embedded in a <script type="text/plain"> tag so it can be
+// read by client-side JS without being executed. Random IDs allow multiple instances
+// on the same page without ID collisions.
 const { code } = Astro.props;
 
 const id = Math.random().toString(36).slice(2);
@@ -40,6 +44,7 @@ const codeId = `shader-code-${id}`;
 <script>
     import { initShaderPlayground } from "../scripts/shader/initShaderPlayground";
 
+    // Editors taller than this pixel height get collapsed with a fade and a "Show more" button
     const THRESHOLD = 400;
 
     document.querySelectorAll<HTMLElement>(".shader-playground").forEach((el) => {
