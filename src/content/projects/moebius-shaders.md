@@ -9,6 +9,8 @@ tags:
     - Unity
     - Shaders
     - URP
+    - Shader Graph
+    - HLSL
     - Non-Photorealistic
 
 links:
