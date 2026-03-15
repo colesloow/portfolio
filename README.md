@@ -38,15 +38,11 @@ The shader source is imported at build time via Vite's `?raw` loader and inlined
 
 ### CodeBlock
 
-Syntax-highlighted code blocks for articles. Supports collapse/expand for long snippets (above 20 lines). Uses CodeMirror 6 with language-specific parsers (GLSL, TypeScript, C#, HLSL).
+Syntax-highlighted code blocks for articles. Supports collapse/expand for long snippets (above 20 lines). Uses CodeMirror 6 with language-specific parsers (GLSL, TypeScript, C#, HLSL) -- the main reason for using CodeMirror here rather than a lighter library is to share the same custom editor theme as ShaderPlayground.
 
 ### Stepper
 
 A step-by-step component for sequenced content in articles. Each step has a title, optional description, and an associated visual (image or canvas). Navigation is handled via CustomEvents, with a mobile-friendly counter fallback.
-
-### PoissonStepper
-
-An extension of Stepper for animated sequences driven by a Poisson disc sampling simulation. The full simulation runs upfront on mount using a seeded RNG (mulberry32), then each frame is drawn on demand as the user steps through.
 
 ---
 
@@ -65,7 +61,9 @@ Project pages support:
 
 ## Home canvas
 
-The home page background is a generative canvas (`src/scripts/homeCanvas.ts`) running a cellular automaton. Colors are inherited from the active CSS theme and update automatically when the user switches between light and dark mode.
+The home page canvas (`src/scripts/homeCanvas.ts`) runs an interactive Poisson disc sampling simulation. Clicking plants 5 seed points in a cross pattern, all sharing the same color. Each seed spawns children that inherit its color and are connected by a visible line, producing a colored spanning tree that gradually fills the canvas. Right-click resets.
+
+A small settings drawer (accessible via a toggle at the top) exposes sliders for line width and minimum point spacing (R), plus color swatches to customize the palette. The canvas background color is read from the active CSS theme and updates automatically on light/dark mode switch.
 
 ---
 
