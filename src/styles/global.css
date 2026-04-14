@@ -237,8 +237,17 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
 
 .project-content h2,
 .article-content h2 {
-    border-left: 3px solid var(--accent);
-    padding-left: 14px;
+    padding-bottom: 0.6rem;
+}
+
+.project-content h2::after,
+.article-content h2::after {
+    content: "";
+    display: block;
+    margin-top: 0.55rem;
+    width: 100px;
+    height: 3px;
+    background: var(--accent);
 }
 
 @media (max-width: 768px) {
@@ -381,10 +390,8 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
 
 .project-content blockquote,
 .article-content blockquote {
-    background: rgba(34, 211, 238, 0.05);
-    border-radius: 6px;
-    padding: 12px 16px;
-
+    border-left: 3px solid var(--accent);
+    padding: 6px 16px;
     color: var(--text-muted);
     margin: 2rem 0;
 }

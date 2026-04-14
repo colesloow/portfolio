@@ -25,8 +25,7 @@ const ogImageURL = ogImage && Astro.site ? new URL(ogImage, Astro.site).href : n
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width" />
 
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/favicon.svg" id="favicon" />
 
         {canonicalURL && <link rel="canonical" href={canonicalURL} />}
 
@@ -54,6 +53,46 @@ const ogImageURL = ogImage && Astro.site ? new URL(ogImage, Astro.site).href : n
             if (theme) {
                 document.documentElement.classList.toggle("light", theme === "light");
             }
+        </script>
+
+        <script>
+            // Animated favicon via canvas - works in all browsers including Chromium.
+            // Chromium does not support CSS animations inside SVG favicons.
+            const COLORS = ['#ff6b8a', '#ffb347', '#6bcb77', '#4d96ff', '#c77dff'];
+            const DURATION = 15000;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d')!;
+            const link = document.getElementById('favicon') as HTMLLinkElement;
+
+            function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+
+            function lerpColor(a: string, b: string, t: number): string {
+                const p = (h: string) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+                const [ar, ag, ab] = p(a);
+                const [br, bg, bb] = p(b);
+                return `rgb(${Math.round(lerp(ar, br, t))},${Math.round(lerp(ag, bg, t))},${Math.round(lerp(ab, bb, t))})`;
+            }
+
+            function draw() {
+                const t = (Date.now() % DURATION) / DURATION;
+                const pos = t * COLORS.length;
+                const i = Math.floor(pos) % COLORS.length;
+                const color = lerpColor(COLORS[i], COLORS[(i + 1) % COLORS.length], pos - Math.floor(pos));
+
+                ctx.clearRect(0, 0, 32, 32);
+                ctx.beginPath();
+                ctx.arc(16, 16, 14, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+
+                link.href = canvas.toDataURL('image/png');
+                requestAnimationFrame(draw);
+            }
+
+            draw();
         </script>
     </head>
 
