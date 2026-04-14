@@ -6,8 +6,15 @@
 // until it either hits the implicit surface or exits the bounding distance.
 
 #ifdef GL_ES
+// Raymarching requires more than mediump can provide on mobile GPUs.
+// highp is optional in WebGL 1 fragment shaders but supported on virtually all modern devices.
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+precision highp int;
+#else
 precision mediump float;
 precision mediump int;
+#endif
 #endif
 
 uniform vec2  u_resolution;

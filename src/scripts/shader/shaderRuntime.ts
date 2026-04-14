@@ -9,7 +9,13 @@ export function createShaderRuntime(
     errorBox: HTMLElement,
     initialCode: string
 ): { update: (fragment: string) => void } {
-    const glOrNull = canvas.getContext("webgl");
+    // Try standard webgl, fall back to experimental-webgl for older mobile browsers.
+    // antialias: false reduces GPU memory usage and improves compatibility on mobile.
+    const ctxOptions: WebGLContextAttributes = { antialias: false, alpha: true };
+    const glOrNull = (
+        canvas.getContext("webgl", ctxOptions) ||
+        canvas.getContext("experimental-webgl", ctxOptions)
+    ) as WebGLRenderingContext | null;
 
     if (!glOrNull) {
         errorBox.style.display = "block";
