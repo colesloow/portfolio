@@ -101,19 +101,42 @@ const canvasId = `shader-${Math.random().toString(36).slice(2)}`;
         gl.enableVertexAttribArray(position);
         gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
 
-        const u_resolution = gl.getUniformLocation(program, "u_resolution");
-        const u_time = gl.getUniformLocation(program, "u_time");
+        let animFrameId = null;
 
         function render(time) {
+            if (gl.isContextLost()) {
+                animFrameId = null;
+                return;
+            }
+
             gl.clear(gl.COLOR_BUFFER_BIT);
+
+            const u_resolution = gl.getUniformLocation(program, "u_resolution");
+            const u_time = gl.getUniformLocation(program, "u_time");
+
             gl.uniform2f(u_resolution, canvas.width, canvas.height);
             gl.uniform1f(u_time, time * 0.001);
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-            requestAnimationFrame(render);
+            animFrameId = requestAnimationFrame(render);
         }
 
-        requestAnimationFrame(render);
+        canvas.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            if (animFrameId !== null) {
+                cancelAnimationFrame(animFrameId);
+                animFrameId = null;
+            }
+        }, false);
+
+        canvas.addEventListener("webglcontextrestored", () => {
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.clearColor(0, 0, 0, 0);
+            animFrameId = requestAnimationFrame(render);
+        }, false);
+
+        animFrameId = requestAnimationFrame(render);
     });
 </script>

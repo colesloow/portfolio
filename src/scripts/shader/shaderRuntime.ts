@@ -101,25 +101,47 @@ gl_Position = vec4(position,0.0,1.0);
         return program;
     }
 
-    let program = createProgram(initialCode);
+    // Track current fragment so the context can be fully rebuilt after a context restore
+    let currentFragment = initialCode;
+    let program = createProgram(currentFragment);
+    let animFrameId: number | null = null;
 
-    // Two triangles forming a full-screen quad, using TRIANGLE_STRIP topology
-    const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-
-    const buffer = gl.createBuffer();
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-    // Recompiles the fragment shader live; only replaces the active program on success
-    function update(fragment: string) {
-        const newProgram = createProgram(fragment);
-        if (newProgram) program = newProgram;
+    function setupBuffers() {
+        const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+        const buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
     }
 
+    setupBuffers();
+
+    // Mobile browsers (and some desktop ones) can lose the WebGL context when the
+    // tab goes to background, memory is under pressure, or the GPU resets.
+    // Calling preventDefault() on contextlost signals that we want the browser to
+    // restore it. We rebuild all GPU state (program + buffers) on contextrestored.
+    canvas.addEventListener("webglcontextlost", (e) => {
+        e.preventDefault();
+        if (animFrameId !== null) {
+            cancelAnimationFrame(animFrameId);
+            animFrameId = null;
+        }
+    }, false);
+
+    canvas.addEventListener("webglcontextrestored", () => {
+        setupBuffers();
+        program = createProgram(currentFragment);
+        animFrameId = requestAnimationFrame(render);
+    }, false);
+
     function render(time: number) {
+        // Stop the loop if the context was lost; it will be restarted on contextrestored
+        if (gl.isContextLost()) {
+            animFrameId = null;
+            return;
+        }
+
         if (!program) {
-            requestAnimationFrame(render);
+            animFrameId = requestAnimationFrame(render);
             return;
         }
 
@@ -141,10 +163,17 @@ gl_Position = vec4(position,0.0,1.0);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
-        requestAnimationFrame(render);
+        animFrameId = requestAnimationFrame(render);
     }
 
-    requestAnimationFrame(render);
+    animFrameId = requestAnimationFrame(render);
+
+    // Recompiles the fragment shader live; only replaces the active program on success
+    function update(fragment: string) {
+        currentFragment = fragment;
+        const newProgram = createProgram(fragment);
+        if (newProgram) program = newProgram;
+    }
 
     return { update };
 }
