@@ -26,8 +26,8 @@ export function createShaderRuntime(
     // Reassign to a non-nullable const so TypeScript can trust the type in all closures
     const gl = glOrNull;
 
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    canvas.width = canvas.clientWidth || canvas.offsetWidth || 300;
+    canvas.height = canvas.clientHeight || canvas.offsetHeight || 400;
 
     // Minimal pass-through vertex shader: maps [-1,1] clip space to screen
     const vertexSrc = `
@@ -45,6 +45,22 @@ gl_Position = vec4(position,0.0,1.0);
     function clearError() {
         errorBox.style.display = "none";
         errorBox.textContent = "";
+    }
+
+    // On mobile GPUs, mediump float has only 10 bits of mantissa.
+    // Hash functions like fract(sin(p) * 43758.5) lose all randomness at mediump because
+    // the large multiplier exceeds meaningful precision. Replace mediump declarations with
+    // a guard that uses highp where the device supports it.
+    function normalizePrecision(src: string): string {
+        const guard =
+            '#ifdef GL_FRAGMENT_PRECISION_HIGH\n' +
+            'precision highp float;\n' +
+            'precision highp int;\n' +
+            '#else\n' +
+            'precision mediump float;\n' +
+            'precision mediump int;\n' +
+            '#endif\n';
+        return src.replace(/precision\s+mediump\s+float\s*;(\s*precision\s+mediump\s+int\s*;)?/g, guard);
     }
 
     function compileShader(type: number, source: string): WebGLShader | null {
@@ -66,7 +82,7 @@ gl_Position = vec4(position,0.0,1.0);
         clearError();
 
         const vs = compileShader(gl.VERTEX_SHADER, vertexSrc);
-        const fs = compileShader(gl.FRAGMENT_SHADER, fragment);
+        const fs = compileShader(gl.FRAGMENT_SHADER, normalizePrecision(fragment));
 
         if (!vs || !fs) return null;
 

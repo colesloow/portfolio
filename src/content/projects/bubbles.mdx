@@ -14,9 +14,11 @@ tags:
 ---
 
 import ShaderPreview from '../../components/ShaderPreview.astro';
+import MobileNote from '../../components/MobileNote.astro';
 import bubblesGlsl from '../../shaders/bubbles.glsl?raw';
 
 <ShaderPreview code={bubblesGlsl} />
+<MobileNote message="This shader is GPU-intensive. On mobile, you may see lower framerates or visual artifacts - for the best experience, view on desktop." />
 
 Sixteen spheres move independently through a bounded volume, each following a path driven by overlapping sine waves with unique frequencies and phases. Their surfaces are blended together using a smooth minimum operator, so adjacent spheres merge and separate fluidly rather than intersecting with hard edges.
 
