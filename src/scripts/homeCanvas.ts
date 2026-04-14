@@ -72,11 +72,13 @@ sharedStyle.textContent = `
         border: 1px solid var(--border);
         border-top: none;
         border-radius: 0 0 8px 8px;
-        cursor: pointer;
+        cursor: grab;
+        touch-action: none;
         user-select: none;
         color: var(--text);
         transition: color 0.15s ease;
     }
+    .canvas-drawer-toggle:active { cursor: grabbing; }
     .canvas-drawer-toggle:hover { animation: rainbow-icon 4s linear infinite; }
     .canvas-drawer .drawer-row {
         display: flex;
@@ -280,20 +282,68 @@ function createControls() {
     wrapper.appendChild(toggle);
     parent.appendChild(wrapper);
 
-    // Measure drawer height after mount to set the correct slide-up offset
+    let drawerH = 0;
+    let isOpen = false;
+
+    // Controls the drawer position. Always uses inline style so drag can override smoothly.
+    function applyOffset(offset: number, animated: boolean) {
+        wrapper.style.transition = animated ? "transform 0.28s ease" : "none";
+        wrapper.style.transform = `translateX(-50%) translateY(${offset}px)`;
+        isOpen = offset === 0;
+    }
+
+    // Measure drawer height after mount, then position it closed
     requestAnimationFrame(() => {
-        const drawerH = drawer.offsetHeight;
-        wrapper.style.setProperty("--drawer-offset", `-${drawerH}px`);
+        drawerH = drawer.offsetHeight;
+        applyOffset(-drawerH, false);
     });
 
-    toggle.addEventListener("click", (e) => {
-        e.stopPropagation();
-        wrapper.classList.toggle("open");
+    // Drag state
+    let isDragging = false;
+    let didDrag = false;
+    let pointerStartY = 0;
+    let baseOffset = 0;
+
+    toggle.addEventListener("pointerdown", (e) => {
+        isDragging = true;
+        didDrag = false;
+        pointerStartY = e.clientY;
+        baseOffset = isOpen ? 0 : -drawerH;
+        wrapper.style.transition = "none";
+        toggle.setPointerCapture(e.pointerId);
     });
 
+    toggle.addEventListener("pointermove", (e) => {
+        if (!isDragging) return;
+        const delta = e.clientY - pointerStartY;
+        if (Math.abs(delta) > 4) didDrag = true;
+        const clamped = Math.max(-drawerH, Math.min(0, baseOffset + delta));
+        wrapper.style.transform = `translateX(-50%) translateY(${clamped}px)`;
+    });
+
+    function finishDrag(e: PointerEvent) {
+        if (!isDragging) return;
+        isDragging = false;
+        const delta = e.clientY - pointerStartY;
+        const threshold = drawerH * 0.35;
+        // Tap: toggle. Drag: open if pulled down enough, close if pushed up enough.
+        const targetOpen = didDrag
+            ? (isOpen ? delta > -threshold : delta > threshold)
+            : !isOpen;
+        applyOffset(targetOpen ? 0 : -drawerH, true);
+    }
+
+    toggle.addEventListener("pointerup", finishDrag);
+    toggle.addEventListener("pointercancel", () => {
+        if (!isDragging) return;
+        isDragging = false;
+        applyOffset(isOpen ? 0 : -drawerH, true);
+    });
+
+    // Close when clicking outside the drawer
     document.addEventListener("click", (e) => {
-        if (!wrapper.contains(e.target as Node)) {
-            wrapper.classList.remove("open");
+        if (isOpen && !wrapper.contains(e.target as Node)) {
+            applyOffset(-drawerH, true);
         }
     });
 }
