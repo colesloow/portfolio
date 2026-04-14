@@ -4,16 +4,18 @@
 // Child points inherit their parent's color and are connected by a visible line,
 // producing a colored spanning tree that fills the canvas.
 
+import { createDrawer } from "./homeDrawer";
+
 const canvas = document.getElementById("home-canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
 
 const COLORS = ["#6050dc", "#ffd800", "#ff4f00", "#0081f7", "#9ed8ff", "#ffc4ed"];
 let shuffledColors = [...COLORS];
 
-let R = 5;           // minimum distance between any two points
-let K = 30;          // max candidate attempts before removing a point from the active list
-let W = R / Math.sqrt(2); // grid cell size: guarantees at most one point per cell
-let MARGIN = R * 1.3;     // keeps seeds and points away from the canvas border
+let R = 5;                        // minimum distance between any two points
+let K = 30;                       // max candidate attempts before removing a point from the active list
+let W = R / Math.sqrt(2);         // grid cell size: guarantees at most one point per cell
+let MARGIN = R * 1.3;             // keeps seeds and points away from the canvas border
 let strokeWidth = 2;
 
 let grid: ({ x: number; y: number } | undefined)[][] = [];
@@ -23,120 +25,85 @@ let nRows = 0;
 let animId = 0;
 let colorIndex = 0;
 
-// --- Shared styles ---
+// --- Canvas-specific styles (hint ripple + algo popup) ---
 
-const sharedStyle = document.createElement("style");
-sharedStyle.textContent = `
+const canvasStyle = document.createElement("style");
+canvasStyle.textContent = `
     @keyframes canvas-ripple {
         0%   { transform: translate(-50%, -50%) scale(0); opacity: 0.7; }
         100% { transform: translate(-50%, -50%) scale(5); opacity: 0; }
     }
 
-    .canvas-drawer-wrapper {
-        position: absolute;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%) translateY(var(--drawer-offset, -200px));
-        transition: transform 0.28s ease;
-        z-index: 10;
-        display: flex;
-        flex-direction: column;
-    }
-    .canvas-drawer-wrapper.open {
-        transform: translateX(-50%) translateY(0);
+    @keyframes algo-popup-in {
+        0%   { opacity: 0; transform: translateY(6px) scale(0.95); }
+        100% { opacity: 1; transform: translateY(0)   scale(1); }
     }
 
-    .canvas-drawer {
+    .algo-popup {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
         background: var(--surface);
         border: 1px solid var(--border);
-        border-top: none;
-        border-bottom: none;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-        padding: 14px 18px 12px;
+        border-radius: 10px;
+        padding: 10px 14px 10px 12px;
         display: flex;
-        flex-direction: column;
+        align-items: center;
         gap: 10px;
-        min-width: 240px;
-        font-size: 12px;
+        cursor: pointer;
+        text-decoration: none;
         color: var(--text);
-        user-select: none;
+        font-size: 0.8rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        animation: algo-popup-in 0.35s ease forwards;
+        transition: border-color 0.15s, box-shadow 0.15s;
+        max-width: 220px;
+        z-index: 10;
     }
-
-    .canvas-drawer-toggle {
+    .algo-popup:hover {
+        border-color: var(--accent);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .algo-popup-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #000;
+        font-size: 0.85rem;
+        font-weight: 700;
         display: flex;
         align-items: center;
         justify-content: center;
-        height: 28px;
-        padding: 0 16px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        cursor: grab;
-        touch-action: none;
-        user-select: none;
-        color: var(--text);
-        transition: color 0.15s ease;
+        flex-shrink: 0;
     }
-    .canvas-drawer-toggle:active { cursor: grabbing; }
-    .canvas-drawer-toggle:hover { animation: rainbow-icon 4s linear infinite; }
-    .canvas-drawer .drawer-row {
-        display: flex;
-        align-items: center;
-        gap: 10px;
+    .algo-popup-text strong {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 1px;
     }
-    .canvas-drawer .drawer-row span {
-        width: 36px;
+    .algo-popup-text span {
+        font-size: 0.7rem;
         color: var(--text-muted);
-        flex-shrink: 0;
+        line-height: 1.3;
     }
-    .canvas-drawer input[type=range] {
-        flex: 1;
-        accent-color: var(--accent);
-        cursor: pointer;
-    }
-    .canvas-drawer .val {
-        width: 28px;
-        text-align: right;
-        color: var(--text-muted);
-        font-variant-numeric: tabular-nums;
-        flex-shrink: 0;
-    }
-    .canvas-drawer .drawer-divider {
-        border: none;
-        border-top: 1px solid var(--border);
-        margin: 2px 0;
-    }
-    .canvas-drawer .drawer-colors {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .canvas-color-swatch {
-        position: relative;
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
-        overflow: hidden;
-        cursor: pointer;
-        border: 2px solid transparent;
-        transition: border-color 0.15s, transform 0.15s;
-        flex-shrink: 0;
-    }
-    .canvas-color-swatch:hover { border-color: var(--text-muted); transform: scale(1.15); }
-    .canvas-color-swatch input[type=color] {
+    .algo-popup-dismiss {
         position: absolute;
-        inset: 0;
-        opacity: 0;
-        cursor: pointer;
-        width: 100%;
-        height: 100%;
+        top: 5px;
+        right: 7px;
+        background: none;
         border: none;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        cursor: pointer;
+        line-height: 1;
         padding: 0;
+        opacity: 0.6;
     }
+    .algo-popup-dismiss:hover { opacity: 1; }
 `;
-document.head.appendChild(sharedStyle);
+document.head.appendChild(canvasStyle);
 
 (canvas.parentElement as HTMLElement).style.position = "relative";
 
@@ -195,160 +162,18 @@ canvas.addEventListener("click", stopHint, { once: true });
 // --- Drawer controls ---
 
 function createControls() {
-    const parent = canvas.parentElement!;
-    parent.querySelectorAll(".canvas-drawer-wrapper").forEach((el) => el.remove());
-
-    const wrapper = document.createElement("div");
-    wrapper.className = "canvas-drawer-wrapper";
-
-    const drawer = document.createElement("div");
-    drawer.className = "canvas-drawer";
-
-    function makeSlider(label: string, min: number, max: number, step: number, value: number, onChange: (v: number) => void) {
-        const row = document.createElement("div");
-        row.className = "drawer-row";
-
-        const name = document.createElement("span");
-        name.textContent = label;
-
-        const slider = document.createElement("input");
-        slider.type = "range";
-        slider.min = String(min);
-        slider.max = String(max);
-        slider.step = String(step);
-        slider.value = String(value);
-
-        const val = document.createElement("span");
-        val.className = "val";
-        val.textContent = String(value);
-
-        slider.addEventListener("input", () => {
-            const v = parseFloat(slider.value);
-            val.textContent = String(v);
-            onChange(v);
-        });
-
-        row.appendChild(name);
-        row.appendChild(slider);
-        row.appendChild(val);
-        return row;
-    }
-
-    drawer.appendChild(makeSlider("width", 0.5, 6, 0.5, strokeWidth, (v) => {
-        strokeWidth = v;
-        ctx.lineWidth = strokeWidth;
-    }));
-
-    // Changing R recomputes W and MARGIN, then restarts the simulation
-    drawer.appendChild(makeSlider("R", 2, 16, 1, R, (v) => {
-        R = v;
-        W = R / Math.sqrt(2);
-        MARGIN = R * 1.3;
-        init();
-    }));
-
-    const divider = document.createElement("hr");
-    divider.className = "drawer-divider";
-    drawer.appendChild(divider);
-
-    const colorsRow = document.createElement("div");
-    colorsRow.className = "drawer-colors";
-
-    COLORS.forEach((color, i) => {
-        const swatch = document.createElement("div");
-        swatch.className = "canvas-color-swatch";
-        swatch.style.background = color;
-
-        const input = document.createElement("input");
-        input.type = "color";
-        input.value = color;
-        input.addEventListener("input", () => {
-            COLORS[i] = input.value;
-            swatch.style.background = input.value;
-            shuffledColors = [...COLORS];
-        });
-
-        swatch.appendChild(input);
-        colorsRow.appendChild(swatch);
-    });
-
-    drawer.appendChild(colorsRow);
-
-    const toggle = document.createElement("div");
-    toggle.className = "canvas-drawer-toggle";
-    toggle.innerHTML = `<svg width="16" height="12" viewBox="-1 -1 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="0" y1="2" x2="14" y2="2"/><circle cx="10" cy="2" r="2" fill="var(--surface)"/><line x1="0" y1="8" x2="14" y2="8"/><circle cx="4" cy="8" r="2" fill="var(--surface)"/></svg>`;
-
-    wrapper.appendChild(drawer);
-    wrapper.appendChild(toggle);
-    parent.appendChild(wrapper);
-
-    let drawerH = 0;
-    let isOpen = false;
-
-    // Controls the drawer position. Always uses inline style so drag can override smoothly.
-    function applyOffset(offset: number, animated: boolean) {
-        wrapper.style.transition = animated ? "transform 0.28s ease" : "none";
-        wrapper.style.transform = `translateX(-50%) translateY(${offset}px)`;
-        isOpen = offset === 0;
-    }
-
-    // Measure drawer height after mount, then position it closed
-    requestAnimationFrame(() => {
-        drawerH = drawer.offsetHeight;
-        applyOffset(-drawerH, false);
-    });
-
-    // Drag state
-    let isDragging = false;
-    let didDrag = false;
-    let pointerStartY = 0;
-    let baseOffset = 0;
-
-    toggle.addEventListener("pointerdown", (e) => {
-        isDragging = true;
-        didDrag = false;
-        pointerStartY = e.clientY;
-        baseOffset = isOpen ? 0 : -drawerH;
-        wrapper.style.transition = "none";
-        toggle.setPointerCapture(e.pointerId);
-    });
-
-    toggle.addEventListener("pointermove", (e) => {
-        if (!isDragging) return;
-        const delta = e.clientY - pointerStartY;
-        if (Math.abs(delta) > 4) didDrag = true;
-        const clamped = Math.max(-drawerH, Math.min(0, baseOffset + delta));
-        wrapper.style.transform = `translateX(-50%) translateY(${clamped}px)`;
-    });
-
-    function finishDrag(e: PointerEvent) {
-        if (!isDragging) return;
-        isDragging = false;
-        const delta = e.clientY - pointerStartY;
-        const threshold = drawerH * 0.35;
-        // Tap: toggle. Drag: open if pulled down enough, close if pushed up enough.
-        const targetOpen = didDrag
-            ? (isOpen ? delta > -threshold : delta > threshold)
-            : !isOpen;
-        applyOffset(targetOpen ? 0 : -drawerH, true);
-    }
-
-    toggle.addEventListener("pointerup", finishDrag);
-    toggle.addEventListener("pointercancel", () => {
-        if (!isDragging) return;
-        isDragging = false;
-        applyOffset(isOpen ? 0 : -drawerH, true);
-    });
-
-    // Close when clicking outside the drawer
-    document.addEventListener("click", (e) => {
-        if (isOpen && !wrapper.contains(e.target as Node)) {
-            applyOffset(-drawerH, true);
+    createDrawer(
+        canvas.parentElement!,
+        { strokeWidth, R, colors: COLORS },
+        {
+            onStrokeWidth: (v) => { strokeWidth = v; ctx.lineWidth = v; },
+            onR: (v) => { R = v; W = R / Math.sqrt(2); MARGIN = R * 1.3; init(); },
+            onColorChange: (i, color) => { COLORS[i] = color; shuffledColors = [...COLORS]; },
         }
-    });
+    );
 }
 
-// --- Poisson disk sampling ---
+// --- Poisson disc sampling ---
 
 function getBgColor(): string {
     return getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#0f1115";
@@ -478,6 +303,9 @@ function tryPlaceSeed(sx: number, sy: number, color: string): boolean {
 }
 
 canvas.addEventListener("click", (e) => {
+    // Schedule the popup on the first click so it appears once the user has seen the animation
+    schedulePopup();
+
     const rect = canvas.getBoundingClientRect();
     // Convert CSS pixel coordinates to canvas resolution coordinates
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -524,6 +352,45 @@ new MutationObserver(() => { init(); }).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ["class"],
 });
+
+// --- "What is this?" popup ---
+// Appears 5 s after the first canvas click; links to the Poisson disc blog post.
+// Dismissed for the session once the user closes or follows the link.
+
+let popupTimer = 0;
+
+function showAlgoPopup() {
+    const parent = canvas.parentElement!;
+    if (parent.querySelector(".algo-popup")) return;
+
+    const link = document.createElement("a");
+    link.className = "algo-popup";
+    link.href = "/blog/poisson-disc-sampling";
+
+    link.innerHTML = `
+        <div class="algo-popup-icon">?</div>
+        <div class="algo-popup-text">
+            <strong>What is this?</strong>
+            <span>Poisson disc sampling - read the article</span>
+        </div>
+        <button class="algo-popup-dismiss" aria-label="Dismiss">✕</button>
+    `;
+
+    // Dismiss button removes the popup without following the link
+    const dismiss = link.querySelector(".algo-popup-dismiss") as HTMLButtonElement;
+    dismiss.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        link.remove();
+    });
+
+    parent.appendChild(link);
+}
+
+function schedulePopup() {
+    clearTimeout(popupTimer);
+    popupTimer = window.setTimeout(showAlgoPopup, 5000);
+}
 
 init();
 createControls();
