@@ -1,0 +1,347 @@
+---
+title: Moebius Shaders in Unity
+date: 2025-01-01
+summary: Building a real-time non-photorealistic renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
+draft: true
+---
+
+## Inspirations and goals
+
+Jean Giraud worked in science fiction, fantasy, and western comics under the name Moebius.
+His graphic style was specific enough that other artists named him directly:
+Otomo cited him as a reference for Akira,
+and his concept work shaped the aesthetics of Alien, Tron, and The Fifth Element.
+His wife said his exceptional precision came from his severe myopia.
+
+{/* GALLERY: 3-4 Giraud panels showing the iconic style (moebius.webp + others from the repo or public domain) */}
+
+In France he's something of a monument,
+which probably explains why I was slow to come to his work.
+The kind of classic you're expected to worship tends to make you resistant (at least it was for me..).
+What actually got me there was searching for desert landscape references while drawing:
+I discovered Arzak, with those wordless panoramas of alien plateaux, and the pages did the rest.
+I came back to his work again when Sable came out in 2021,
+a game by Shedworks that used his iconic graphic style as a direct visual reference.
+
+{/* IMAGE: sable_game.jpg or sable01.webp - Sable screenshot */}
+
+This project started from wanting to understand how that graphic logic actually works,
+and whether it could transfer to a real-time renderer in Unity URP.
+
+{/* IMAGE: capt1.png or capt4.png - final Unity scene screenshot */}
+
+## Pipeline
+
+This project uses NPR - Non-Photorealistic Rendering.
+Instead of simulating physical light, the goal is graphic legibility:
+flat colors, controlled shadows, and ink-like outlines.
+All object shaders are unlit: no light probes, no global illumination.
+Each one computes its own shading from a single directional light,
+with lit and shadow colors defined directly by the artist.
+
+The pipeline has two layers.
+The first is a set of object shaders (color gradient, hatching, bubble, skydome), all unlit.
+The second is a fullscreen post-process pass that runs after the scene is rendered
+and reads the depth, normal, and color buffers to draw outlines on top.
+
+{/* ILLUSTRATION: diagramme de flux - [Object shaders] -> [G-buffers: depth | normals | color] -> [Outline pass] -> [Final image] */}
+
+## Outline
+
+Outlines are a fullscreen post-process pass, not an inverted hull or geometry shader.
+The pass runs after the scene is fully rendered
+and detects edges by reading the depth, normal, and color buffers.
+No mesh modification needed; the detector works on pixels, not geometry.
+
+The starting point was a [tutorial by Digvijaysinh Gohil](https://www.youtube.com/watch?v=nc3a3THBFrg)
+covering two detection methods: depth-based and normal-based.
+Both produced clean results on solid geometry.
+
+### Depth-based detection
+
+The depth buffer stores, for each pixel, how far the camera is from the nearest surface.
+At a silhouette or a hard geometric crease, this value jumps sharply between neighboring pixels.
+A gradient filter makes those discontinuities visible.
+
+The filter used is the Scharr operator, a 3×3 convolution applied to the depth buffer.
+Scharr is a variant of the [Sobel operator](https://en.wikipedia.org/wiki/Sobel_operator):
+it uses coefficients 3 and 10 instead of Sobel's 1 and 2,
+which produces a more isotropic gradient, responding more uniformly to edges at all orientations.
+
+$$
+G_x = \begin{bmatrix} -3 & 0 & +3 \\ -10 & 0 & +10 \\ -3 & 0 & +3 \end{bmatrix} * I
+\qquad
+G_y = \begin{bmatrix} -3 & -10 & -3 \\ 0 & 0 & 0 \\ +3 & +10 & +3 \end{bmatrix} * I
+$$
+
+$$|G| = \sqrt{G_x^2 + G_y^2}$$
+
+A pixel becomes an edge if $|G|$ exceeds a threshold.
+
+The playground below visualizes this directly as grayscale, brighter means closer.
+In Unity this buffer already exists; no raymarching needed.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+// Three spheres at clearly different distances from the camera
+float scene(vec3 p) {
+    float close  = sdSphere(p - vec3(-0.5,  0.1,  1.0), 0.45);
+    float middle = sdSphere(p - vec3( 0.4, -0.2,  0.0), 0.35);
+    float far    = sdSphere(p - vec3(-0.1,  0.4, -0.9), 0.3);
+    return min(close, min(middle, far));
+}
+
+// Returns ray travel distance, or 8.0 on miss
+float getDepth(vec2 uv) {
+    vec3 ro = vec3(0.0, 0.0, 3.0);
+    vec3 rd = normalize(vec3(uv, -1.5));
+    float t = 0.0;
+    for (int i = 0; i < 48; i++) {
+        float d = scene(ro + rd * t);
+        if (d < 0.001) return t;
+        t += d;
+        if (t > 8.0) break;
+    }
+    return 8.0;
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+    float depth = getDepth(uv);
+
+    // Remap to brightness: close = bright, far = dark, miss = near black
+    float normalized = 1.0 - clamp((depth - 1.5) / 5.5, 0.0, 1.0);
+    vec3 col = depth < 8.0 ? vec3(normalized) : vec3(0.04);
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+{/* IMAGE: depth buffer screenshot from Unity - grayscale, same scene */}
+
+The second playground applies the Scharr filter to those depth values.
+8 texture samples per pixel, one gradient magnitude, one threshold.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+float scene(vec3 p) {
+    float close  = sdSphere(p - vec3(-0.5,  0.1,  1.0), 0.45);
+    float middle = sdSphere(p - vec3( 0.4, -0.2,  0.0), 0.35);
+    float far    = sdSphere(p - vec3(-0.1,  0.4, -0.9), 0.3);
+    return min(close, min(middle, far));
+}
+
+float getDepth(vec2 uv) {
+    vec3 ro = vec3(0.0, 0.0, 3.0);
+    vec3 rd = normalize(vec3(uv, -1.5));
+    float t = 0.0;
+    for (int i = 0; i < 48; i++) {
+        float d = scene(ro + rd * t);
+        if (d < 0.001) return t;
+        t += d;
+        if (t > 8.0) break;
+    }
+    return 8.0;
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+    float px = 1.0 / u_resolution.y;
+
+    float dCenter = getDepth(uv);
+
+    // Sample the 8 neighbors
+    float d00 = getDepth(uv + vec2(-px, -px));
+    float d10 = getDepth(uv + vec2(  0, -px));
+    float d20 = getDepth(uv + vec2( px, -px));
+    float d01 = getDepth(uv + vec2(-px,   0));
+    float d21 = getDepth(uv + vec2( px,   0));
+    float d02 = getDepth(uv + vec2(-px,  px));
+    float d12 = getDepth(uv + vec2(  0,  px));
+    float d22 = getDepth(uv + vec2( px,  px));
+
+    // Scharr gradient
+    float gx = -3.0*d00 + 3.0*d20 - 10.0*d01 + 10.0*d21 - 3.0*d02 + 3.0*d22;
+    float gy = -3.0*d00 - 10.0*d10 - 3.0*d20 + 3.0*d02 + 10.0*d12 + 3.0*d22;
+    float edge = step(5.0, sqrt(gx*gx + gy*gy));
+
+    float fill = dCenter < 8.0 ? 0.15 : 0.04;
+    vec3 col = vec3(mix(fill, 1.0, edge));
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+{/* IMAGE: depth-based outline result from Unity - same scene, outlines visible */}
+
+The same logic in the actual Unity HLSL.
+The Scharr kernels are shared across all three detection methods, so they live in a struct:
+
+```hlsl
+struct ScharrOperators
+{
+    float3x3 x;
+    float3x3 y;
+};
+
+// ==============================================
+//        Scharr X        ||   Scharr Y
+//       -3,   0,   3     ||  -3, -10,  -3
+//      -10,   0,  10     ||   0,   0,   0
+//       -3,   0,   3     ||   3,  10,   3
+// ==============================================
+
+ScharrOperators GetEdgeDetectionKernels()
+{
+    ScharrOperators kernels;
+
+    kernels.x = float3x3(
+        -3, -10, -3,
+         0,   0,  0,
+         3,  10,  3
+    );
+
+    kernels.y = float3x3(
+        -3,  0,  3,
+       -10,  0, 10,
+        -3,  0,  3
+    );
+
+    return kernels;
+}
+
+void DepthBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
+{
+    outlines = 0.0;
+
+    ScharrOperators k = GetEdgeDetectionKernels();
+
+    float gx = 0.0;
+    float gy = 0.0;
+
+    for (int i = -1; i <= 1; i++)
+    {
+        for (int j = -1; j <= 1; j++)
+        {
+            float2 offset = float2(i, j) * px;
+
+            float d = SampleSceneDepth(screenUV + offset);
+            d = LinearEyeDepth(d, _ZBufferParams);
+
+            // (row, col) -> (j+1, i+1)
+            gx += d * k.x[j + 1][i + 1];
+            gy += d * k.y[j + 1][i + 1];
+        }
+    }
+
+    outlines = step(0.05, sqrt(gx * gx + gy * gy));
+}
+```
+
+{/* IMAGE: before/after Unity screenshot with outlines on/off */}
+
+### Normal-based detection
+
+The normal buffer stores surface orientation per pixel as a world-space vector.
+Where two surfaces meet at an angle, neighboring pixels point in very different directions.
+The dot product between a pixel's normal and each of its neighbors falls sharply at those discontinuities:
+
+```hlsl
+void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
+{
+    outlines = 0.0;
+
+    ScharrOperators k = GetEdgeDetectionKernels();
+
+    float gx = 0.0;
+    float gy = 0.0;
+
+    float3 centerNormal = SampleSceneNormals(screenUV);
+
+    for (int i = -1; i <= 1; i++)
+    {
+        for (int j = -1; j <= 1; j++)
+        {
+            if (i == 0 && j == 0) continue;
+
+            float2 offset = float2(i, j) * px;
+            float3 n = SampleSceneNormals(screenUV + offset);
+
+            // Dot product measures angular difference from center normal
+            float dp = dot(centerNormal, n);
+
+            gx += dp * k.x[j + 1][i + 1];
+            gy += dp * k.y[j + 1][i + 1];
+        }
+    }
+
+    // Lower threshold: dp values are close to 1 everywhere except at creases
+    outlines = step(0.2, sqrt(gx * gx + gy * gy));
+}
+```
+
+This catches detail that depth-based detection misses:
+interior creases, folds, and surface ridges where depth barely changes but the orientation shifts sharply.
+
+Both methods work on solid geometry.
+But what happens when a transparent object is in the scene?
+Transparent surfaces don't write to the depth or normal buffers,
+so both filters are blind to them.
+
+### Color-based detection
+
+The fix is to read from the color buffer instead.
+Transparent objects do render to color, even if they skip depth and normals.
+This third method samples four neighbors (left, right, up, down)
+and measures luminance contrast across them.
+A `smoothstep` replaces the hard `step`, which softens the outline boundary and reduces aliasing.
+
+```hlsl
+float SG_Luma(float3 c)
+{
+    // Standard perceptual luminance weights
+    return dot(c, float3(0.2126, 0.7152, 0.0722));
+}
+
+void ColorBasedOutlinesFromSamples_float(
+    float4 cL, float4 cR, float4 cU, float4 cD,
+    float threshold,
+    out float outlines)
+{
+    float lL = SG_Luma(cL.rgb);
+    float lR = SG_Luma(cR.rgb);
+    float lU = SG_Luma(cU.rgb);
+    float lD = SG_Luma(cD.rgb);
+
+    float lMin = min(min(lL, lR), min(lU, lD));
+    float lMax = max(max(lL, lR), max(lU, lD));
+
+    // Local luminance contrast, amplified before thresholding
+    float e = (lMax - lMin) * 5.0;
+
+    outlines = smoothstep(threshold, threshold * 2.0, e);
+}
+```
+
+### Resolution awareness
+
+A `PixelSize` subgraph computes the UV offset per pixel as `OutlinesThickness / screen_resolution`.
+This keeps outline width visually consistent across resolutions:
+a thickness of 1.0 always means exactly one pixel,
+regardless of whether the scene is rendering at 1080p or 4K.
+
+### Limitations
+
+Depth-based edges alias on thin geometry
+and can miss surfaces viewed at a grazing angle (where depth barely changes across the silhouette).
+Screen-space detection also breaks at object boundaries that are too close together in depth:
+the gradient may not distinguish them.
+These edge cases are visible in the final renders, particularly on fine structures.
