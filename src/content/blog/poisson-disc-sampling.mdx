@@ -8,9 +8,13 @@ import PoissonStepper from "../../components/PoissonStepper.astro";
 
 ## The problem with pure random
 
-Randomness sounds like the right tool when you want things to look natural. Random tree placement, random enemy spawns, random sample positions for anti-aliasing. Surely a random number generator is all you need?
+Randomness sounds like the right tool when you want things to look natural.
+Random tree placement, random enemy spawns, random sample positions for anti-aliasing.
+Surely a random number generator is all you need?
 
-Not quite. Pure random distributions have a well-known flaw: they cluster. Scatter 200 points randomly across a canvas and you'll see dense piles here, conspicuous empty voids there. It doesn't look natural, right?
+Not quite. Pure random distributions have a well-known flaw: they cluster.
+Scatter 200 points randomly across a canvas and you'll see dense piles here, conspicuous empty voids there.
+It doesn't look natural, right?
 
 ```glsl live
 precision mediump float;
@@ -64,15 +68,28 @@ void main() {
 }
 ```
 
-The left half shows pure random distribution: clusters form here, voids open there. The right half shows Poisson disc sampling. Both contain the same number of points, but the Poisson version distributes them evenly, with no obvious gaps and no piles.
+The left half shows pure random distribution: clusters form here, voids open there.
+The right half shows Poisson disc sampling.
+Both contain the same number of points,
+but the Poisson version distributes them evenly, with no obvious gaps and no piles.
 
-This difference actually has a name. In signal processing terms, pure random produces **white noise**: its energy is spread evenly across all frequencies, including the very low ones that create large-scale variation (the clusters and voids). What we want is **blue noise**: energy concentrated in high frequencies, meaning fine-scale variation without large-scale structure. Poisson disc sampling is one of the most practical ways to get it.
+This difference actually has a name.
+In signal processing terms, pure random produces **white noise**:
+its energy is spread evenly across all frequencies,
+including the very low ones that create large-scale variation (the clusters and voids).
+What we want is **blue noise**: energy concentrated in high frequencies,
+meaning fine-scale variation without large-scale structure.
+Poisson disc sampling is one of the most practical ways to get it.
 
 ## One rule to fix everything
 
-The entire algorithm rests on a single constraint: every point must be at least a distance _r_ away from all other points.
+The entire algorithm rests on a single constraint:
+every point must be at least a distance _r_ away from all other points.
 
-That's it! This minimum distance _r_ (the "disc radius") prevents clustering by making it physically impossible for two points to be too close. Points can still land anywhere as long as they respect this rule, so you keep genuine randomness, just without the ugly clumps.
+That's it! This minimum distance _r_ (the "disc radius") prevents clustering
+by making it physically impossible for two points to be too close.
+Points can still land anywhere as long as they respect this rule,
+so you keep genuine randomness, just without the ugly clumps.
 
 ## The naive approach: dart throwing
 
@@ -103,13 +120,18 @@ function dartThrowing(width, height, r, maxAttempts):
     return points
 ```
 
-This works, but it's slow... As the region fills up, new candidates get rejected more and more often. You spend most of your time throwing darts that miss. For large regions or small values of _r_, this becomes completely impractical.
+This works, but it's slow... As the region fills up, new candidates get rejected more and more often.
+You spend most of your time throwing darts that miss.
+For large regions or small values of _r_, this becomes completely impractical.
 
 ## Bridson's algorithm
 
-In 2007, Robert Bridson published a [two-page paper](https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf) at SIGGRAPH that solves this in **O(n)** time: proportional to the number of output points, not to the number of attempts.
+In 2007, Robert Bridson published a [two-page paper](https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf) at SIGGRAPH
+that solves this in **O(n)** time: proportional to the number of output points, not to the number of attempts.
 
-The key idea is a **spatial acceleration grid**. Instead of testing a new candidate against all existing points, you only check the small neighborhood of cells around it.
+The key idea is a **spatial acceleration grid**.
+Instead of testing a new candidate against all existing points,
+you only check the small neighborhood of cells around it.
 
 Here's how it works:
 
@@ -122,7 +144,8 @@ Here's how it works:
     - If a valid candidate is found: add it to the grid, the point list, and the active list.
     - If no valid candidate is found after `k` tries: remove the current point from the active list.
 
-The active list ensures we keep growing from every point before declaring a region full. The grid makes each neighbor lookup `O(1)` instead of `O(n)`.
+The active list ensures we keep growing from every point before declaring a region full.
+The grid makes each neighbor lookup `O(1)` instead of `O(n)`.
 
 ```javascript
 function poissonDisc(width, height, r, k = 30) {
@@ -193,21 +216,32 @@ function poissonDisc(width, height, r, k = 30) {
 }
 ```
 
-The parameter `k` controls how hard the algorithm tries before moving on. The canonical value is 30, which produces dense, nearly-maximal distributions while staying fast. Lower values run faster but leave more empty space.
+The parameter `k` controls how hard the algorithm tries before moving on.
+The canonical value is 30, which produces dense, nearly-maximal distributions while staying fast.
+Lower values run faster but leave more empty space.
 
 ## The math: why r / √2?
 
 The cell size `r / √2` is chosen so that **each cell can contain at most one point**.
 
-A square with side length `s` has a diagonal of `s√2`. If `s = r / √2`, the diagonal is exactly `r`. Since two points inside the same cell are at most one diagonal apart, and all points must be at least `r` apart, at most one point can fit per cell.
+A square with side length `s` has a diagonal of `s√2`.
+If `s = r / √2`, the diagonal is exactly `r`.
+Since two points inside the same cell are at most one diagonal apart,
+and all points must be at least `r` apart, at most one point can fit per cell.
 
-This single-point-per-cell property is what makes the lookup efficient. To find all existing points within distance `r` of a candidate, we only need to check a 5x5 block of cells centered on the candidate's cell. That's at most 25 cells to check, a constant regardless of total point count.
+This single-point-per-cell property is what makes the lookup efficient.
+To find all existing points within distance `r` of a candidate,
+we only need to check a 5x5 block of cells centered on the candidate's cell.
+That's at most 25 cells to check, a constant regardless of total point count.
 
 ## Every point owns a piece of the space
 
-A useful way to visualize why Poisson disc sampling is "fair" is the Voronoi diagram of its points. For any distribution, you can draw the Voronoi diagram by coloring each pixel according to which point it's closest to.
+A useful way to visualize why Poisson disc sampling is "fair" is the Voronoi diagram of its points.
+For any distribution, you can draw the Voronoi diagram
+by coloring each pixel according to which point it's closest to.
 
-With Poisson disc points, these cells end up roughly equal in size. No point is surrounded by an enormous empty territory, no point is squeezed into a tiny sliver.
+With Poisson disc points, these cells end up roughly equal in size.
+No point is surrounded by an enormous empty territory, no point is squeezed into a tiny sliver.
 
 ```glsl live
 precision mediump float;
@@ -262,19 +296,38 @@ void main() {
 }
 ```
 
-The white dots are the Poisson disc points. Each colored region is one cell. Even as the points drift slightly, the regions stay roughly the same size. No point colonizes its neighbors' territory.
+The white dots are the Poisson disc points. Each colored region is one cell.
+Even as the points drift slightly, the regions stay roughly the same size.
+No point colonizes its neighbors' territory.
 
-Compare this to what the Voronoi diagram of a white noise distribution looks like: some points would have tiny slivers, others would own huge areas.
+Compare this to what the Voronoi diagram of a white noise distribution looks like:
+some points would have tiny slivers, others would own huge areas.
 
 ## Where it shows up
 
-**Rendering:** physically based renderers use blue noise to distribute ray samples for shadows, ambient occlusion, and path tracing. Poisson-distributed samples converge faster than pure Monte Carlo with the same sample count because they avoid redundant coverage of the same region. The same principle applies to [supersampling](https://en.wikipedia.org/wiki/Supersampling): instead of placing sub-pixel samples on a regular grid (which can alias with regular geometry), Poisson disc sampling spreads them irregularly enough to avoid structured artifacts while keeping them spread enough to actually cover the pixel.
+**Rendering:** physically based renderers use blue noise to distribute ray samples
+for shadows, ambient occlusion, and path tracing.
+Poisson-distributed samples converge faster than pure Monte Carlo with the same sample count
+because they avoid redundant coverage of the same region.
+The same principle applies to [supersampling](https://en.wikipedia.org/wiki/Supersampling):
+instead of placing sub-pixel samples on a regular grid (which can alias with regular geometry),
+Poisson disc sampling spreads them irregularly enough to avoid structured artifacts
+while keeping them spread enough to actually cover the pixel.
 
-**Stippling:** Poisson disc sampling is the foundation of the classic stippling effect, where a continuous-tone image is represented entirely by dots. Even dot placement preserves perceived luminance far better than random scatter.
+**Stippling:** Poisson disc sampling is the foundation of the classic stippling effect,
+where a continuous-tone image is represented entirely by dots.
+Even dot placement preserves perceived luminance far better than random scatter.
 
-**Texture synthesis:** when generating Voronoi-based textures (stone, cells, organic surfaces), the feature points need to be Poisson-distributed to avoid degenerate cells that are too thin or too small to render properly.
+**Texture synthesis:** when generating Voronoi-based textures (stone, cells, organic surfaces),
+the feature points need to be Poisson-distributed
+to avoid degenerate cells that are too thin or too small to render properly.
 
-**Game development:** foliage scattering, loot drops, ambient sound source placement, procedural dungeon decoration. Uniform distribution means no awkward empty patches and no impossible-to-navigate piles. Unity's terrain scatter system and Unreal's foliage painter both use variants of Poisson disc sampling internally. Sebastian Lague has a [great walkthrough](https://www.youtube.com/watch?v=7WcmyxyFO7o) of implementing it for procedural object placement in Unity.
+**Game development:** foliage scattering, loot drops, ambient sound source placement,
+procedural dungeon decoration.
+Uniform distribution means no awkward empty patches and no impossible-to-navigate piles.
+Unity's terrain scatter system and Unreal's foliage painter both use variants of Poisson disc sampling internally.
+Sebastian Lague has a [great walkthrough](https://www.youtube.com/watch?v=7WcmyxyFO7o)
+of implementing it for procedural object placement in Unity.
 
 ```csharp
 // Unity implementation by Sebastian Lague
@@ -350,15 +403,26 @@ public static class PoissonDiscSampling {
 
 ## The home page canvas
 
-The animation on the [home page](/) runs the same algorithm, with one addition: every time a point is accepted, a line is drawn from its parent to it. That single change turns the abstract data structure into a visible spanning tree.
+The animation on the [home page](/) runs the same algorithm, with one addition:
+every time a point is accepted, a line is drawn from its parent to it.
+That single change turns the abstract data structure into a visible spanning tree.
 
-The interactive below walks through each step of Bridson's algorithm, from the initial seed point to a fully saturated grid.
+The interactive below walks through each step of Bridson's algorithm,
+from the initial seed point to a fully saturated grid.
 
 <PoissonStepper />
 
-Each click on this canvas places five seed points in a small cross pattern, all sharing the same color. New points inherit their parent's color, so each click produces a distinct colored region that grows outward. Because no two branches can come within `r` of each other, regions of different colors expand side by side but never merge or cross, filling the canvas right up to each other's boundary.
+Each click on this canvas places five seed points in a small cross pattern, all sharing the same color.
+New points inherit their parent's color,
+so each click produces a distinct colored region that grows outward.
+Because no two branches can come within `r` of each other,
+regions of different colors expand side by side but never merge or cross,
+filling the canvas right up to each other's boundary.
 
-I hope this gave you a clear picture of how the algorithm works and where it could be useful. Whether you're placing objects in a game world, distributing samples for a renderer, or just curious about what's running on the home page, Poisson disc sampling is a genuinely useful tool to have in mind.
+I hope this gave you a clear picture of how the algorithm works and where it could be useful.
+Whether you're placing objects in a game world, distributing samples for a renderer,
+or just curious about what's running on the home page,
+Poisson disc sampling is a genuinely useful tool to have in mind.
 
 ## Sources
 
