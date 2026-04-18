@@ -2,7 +2,7 @@
 title: Moebius Shaders in Unity
 date: 2025-01-01
 summary: Building a real-time non-photorealistic renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
-draft: true
+draft: false
 ---
 
 ## Inspirations and goals
@@ -32,8 +32,8 @@ and whether it could transfer to a real-time renderer in Unity URP.
 
 ## Pipeline
 
-This project uses NPR - Non-Photorealistic Rendering.
-Instead of simulating physical light, the goal is graphic legibility:
+This project uses NPR (Non-Photorealistic Rendering).
+Instead of simulating physical light, the goal is graphic legibility, with
 flat colors, controlled shadows, and ink-like outlines.
 All object shaders are unlit: no light probes, no global illumination.
 Each one computes its own shading from a single directional light,
@@ -48,10 +48,17 @@ and reads the depth, normal, and color buffers to draw outlines on top.
 
 ## Outline
 
-Outlines are a fullscreen post-process pass, not an inverted hull or geometry shader.
+Outlines are computed as a fullscreen post-process pass.
 The pass runs after the scene is fully rendered
 and detects edges by reading the depth, normal, and color buffers.
-No mesh modification needed; the detector works on pixels, not geometry.
+No mesh modification needed: the detector works on pixels, not geometry.
+
+Another common approach is the inverted hull technique:
+each mesh is rendered twice, once normally, then scaled up slightly with backfaces visible,
+producing a solid halo around the geometry.
+It's stable and gives clean silhouettes, but only catches outer contours.
+Interior creases, folds, and surface details are invisible to it.
+A hybrid - hull for silhouettes, screen-space for interior detail - could be worth exploring.
 
 The starting point was a [tutorial by Digvijaysinh Gohil](https://www.youtube.com/watch?v=nc3a3THBFrg)
 covering two detection methods: depth-based and normal-based.
@@ -78,8 +85,8 @@ $$|G| = \sqrt{G_x^2 + G_y^2}$$
 
 A pixel becomes an edge if $|G|$ exceeds a threshold.
 
-The playground below visualizes this directly as grayscale, brighter means closer.
-In Unity this buffer already exists; no raymarching needed.
+The code below visualizes this directly as grayscale, brighter means closer.
+In Unity this buffer already exists, no raymarching is needed.
 
 ```glsl live
 precision mediump float;
@@ -89,9 +96,9 @@ float sdSphere(vec3 p, float r) { return length(p) - r; }
 
 // Three spheres at clearly different distances from the camera
 float scene(vec3 p) {
-    float close  = sdSphere(p - vec3(-0.5,  0.1,  1.0), 0.45);
+    float close = sdSphere(p - vec3(-0.5,  0.1,  1.0), 0.45);
     float middle = sdSphere(p - vec3( 0.4, -0.2,  0.0), 0.35);
-    float far    = sdSphere(p - vec3(-0.1,  0.4, -0.9), 0.3);
+    float far = sdSphere(p - vec3(-0.1,  0.4, -0.9), 0.3);
     return min(close, min(middle, far));
 }
 
@@ -114,7 +121,7 @@ void main() {
     float depth = getDepth(uv);
 
     // Remap to brightness: close = bright, far = dark, miss = near black
-    float normalized = 1.0 - clamp((depth - 1.5) / 5.5, 0.0, 1.0);
+    float normalized = 1.0 - clamp((depth - 1.5) / 3.0, 0.0, 1.0);
     vec3 col = depth < 8.0 ? vec3(normalized) : vec3(0.04);
 
     gl_FragColor = vec4(col, 1.0);
@@ -123,8 +130,9 @@ void main() {
 
 {/* IMAGE: depth buffer screenshot from Unity - grayscale, same scene */}
 
-The second playground applies the Scharr filter to those depth values.
-8 texture samples per pixel, one gradient magnitude, one threshold.
+The second one applies the Scharr filter to those depth values.
+It samples the 8 neighboring pixels, computes the Scharr gradient magnitude from those depth values,
+and marks a pixel as an edge if that magnitude exceeds a threshold.
 
 ```glsl live
 precision mediump float;
@@ -133,9 +141,9 @@ uniform vec2 u_resolution;
 float sdSphere(vec3 p, float r) { return length(p) - r; }
 
 float scene(vec3 p) {
-    float close  = sdSphere(p - vec3(-0.5,  0.1,  1.0), 0.45);
+    float close = sdSphere(p - vec3(-0.5,  0.1,  1.0), 0.45);
     float middle = sdSphere(p - vec3( 0.4, -0.2,  0.0), 0.35);
-    float far    = sdSphere(p - vec3(-0.1,  0.4, -0.9), 0.3);
+    float far = sdSphere(p - vec3(-0.1,  0.4, -0.9), 0.3);
     return min(close, min(middle, far));
 }
 
@@ -182,7 +190,7 @@ void main() {
 
 {/* IMAGE: depth-based outline result from Unity - same scene, outlines visible */}
 
-The same logic in the actual Unity HLSL.
+Here is the same logic in the actual Unity HLSL.
 The Scharr kernels are shared across all three detection methods, so they live in a struct:
 
 ```hlsl
@@ -191,13 +199,6 @@ struct ScharrOperators
     float3x3 x;
     float3x3 y;
 };
-
-// ==============================================
-//        Scharr X        ||   Scharr Y
-//       -3,   0,   3     ||  -3, -10,  -3
-//      -10,   0,  10     ||   0,   0,   0
-//       -3,   0,   3     ||   3,  10,   3
-// ==============================================
 
 ScharrOperators GetEdgeDetectionKernels()
 {
@@ -250,9 +251,12 @@ void DepthBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
 
 ### Normal-based detection
 
-The normal buffer stores surface orientation per pixel as a world-space vector.
-Where two surfaces meet at an angle, neighboring pixels point in very different directions.
-The dot product between a pixel's normal and each of its neighbors falls sharply at those discontinuities:
+The normal buffer stores, for each pixel, a unit vector pointing perpendicular to the surface.
+On a flat area, neighboring pixels have nearly identical normals: their dot product is close to 1.
+At a crease or fold, the normals suddenly diverge, and the dot product drops sharply.
+Applying the Scharr filter to these dot product values detects exactly those orientation discontinuities.
+
+{/* ILLUSTRATION: schéma - deux surfaces qui se rejoignent en angle, vecteurs normaux dessinés sur chaque face, dot product ~1 sur la surface plane, dot product bas à la crête */}
 
 ```hlsl
 void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
@@ -291,10 +295,13 @@ void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
 This catches detail that depth-based detection misses:
 interior creases, folds, and surface ridges where depth barely changes but the orientation shifts sharply.
 
-Both methods work on solid geometry.
-But what happens when a transparent object is in the scene?
-Transparent surfaces don't write to the depth or normal buffers,
-so both filters are blind to them.
+Both methods work on solid geometry. But what happens when a transparent object is in the scene?
+
+{/* IMAGE: capture d'un objet transparent dans la scène, sans outline - légende : "where did the outline go?" */}
+
+As you can see, transparent geometry doesn't write to the depth or normal buffers,
+so both filters see nothing where the object should be.
+This means that glass, bubbles, or any surface that lets light through will simply never get outlines.
 
 ### Color-based detection
 
@@ -333,15 +340,24 @@ void ColorBasedOutlinesFromSamples_float(
 
 ### Resolution awareness
 
-A `PixelSize` subgraph computes the UV offset per pixel as `OutlinesThickness / screen_resolution`.
-This keeps outline width visually consistent across resolutions:
-a thickness of 1.0 always means exactly one pixel,
-regardless of whether the scene is rendering at 1080p or 4K.
+The outline pass samples neighbors at a UV offset of `OutlinesThickness / screen_resolution`.
+This matters because UV space is resolution-independent:
+the same offset covers twice as many physical pixels at 4K as at 1080p.
+Dividing by resolution ensures a thickness of 1.0 always means exactly one pixel on screen,
+whatever the rendering resolution.
+
+{/* ILLUSTRATION: schéma - même offset UV sur deux résolutions différentes : à 1080p il couvre 1px, à 4K il couvre 2px sans la correction; avec la correction, les deux donnent 1px */}
 
 ### Limitations
 
-Depth-based edges alias on thin geometry
-and can miss surfaces viewed at a grazing angle (where depth barely changes across the silhouette).
-Screen-space detection also breaks at object boundaries that are too close together in depth:
-the gradient may not distinguish them.
-These edge cases are visible in the final renders, particularly on fine structures.
+Depth-based detection aliases on thin geometry
+and can miss surfaces seen nearly edge-on, where depth barely changes across the silhouette.
+It also fails when two surfaces are at nearly the same depth:
+the gradient sees no discontinuity, even if the geometry is distinct.
+Normal-based detection doesn't have that last problem,
+but it can fire on smooth curved surfaces where normals shift gradually,
+producing faint outlines where none were intended.
+
+{/* IMAGE: thin geometry (wire, branches) with broken/dotted outline - depth aliasing */}
+{/* IMAGE: grazing angle surface - outline disappears at shallow viewing angle */}
+{/* IMAGE: two objects at similar depth - no outline between them */}
