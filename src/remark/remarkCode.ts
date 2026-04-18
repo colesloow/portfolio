@@ -34,8 +34,8 @@ export default function remarkCode() {
         let found = false;
 
         const visit = (node: any, parent: any) => {
-            // Skip blocks handled by remarkShader
-            if (node.type === "code" && !(node.lang === "glsl" && node.meta === "live")) {
+            const isLiveShader = node.lang === "glsl" && (node.meta ?? "").split(" ").includes("live");
+            if (node.type === "code" && !isLiveShader) {
                 found = true;
                 parent.children[parent.children.indexOf(node)] = {
                     type: "mdxJsxFlowElement",

@@ -34,18 +34,27 @@ export default function remarkShader() {
         let found = false;
 
         const visit = (node: any, parent: any) => {
-            if (node.type === "code" && node.lang === "glsl" && node.meta === "live") {
+            const tokens: string[] = (node.meta ?? "").split(" ");
+            if (node.type === "code" && node.lang === "glsl" && tokens.includes("live")) {
                 found = true;
+                const attributes: any[] = [
+                    {
+                        type: "mdxJsxAttribute",
+                        name: "code",
+                        value: makeStringExpression(node.value),
+                    },
+                ];
+                if (tokens.includes("tall")) {
+                    attributes.push({
+                        type: "mdxJsxAttribute",
+                        name: "previewRatio",
+                        value: makeStringExpression("1 / 2"),
+                    });
+                }
                 parent.children[parent.children.indexOf(node)] = {
                     type: "mdxJsxFlowElement",
                     name: "ShaderPlayground",
-                    attributes: [
-                        {
-                            type: "mdxJsxAttribute",
-                            name: "code",
-                            value: makeStringExpression(node.value),
-                        },
-                    ],
+                    attributes,
                     children: [],
                 };
             }

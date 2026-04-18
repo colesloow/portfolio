@@ -3,7 +3,7 @@
 // The initial shader code is embedded in a <script type="text/plain"> tag so it can be
 // read by client-side JS without being executed. Random IDs allow multiple instances
 // on the same page without ID collisions.
-const { code } = Astro.props;
+const { code, previewRatio = "1 / 1" } = Astro.props;
 
 const id = Math.random().toString(36).slice(2);
 const canvasId = `shader-canvas-${id}`;
@@ -35,7 +35,9 @@ const codeId = `shader-code-${id}`;
             <div id={editorId} class="editor"></div>
         </div>
 
-        <div class="shader-preview">
+        <div class="resizer" aria-hidden="true"></div>
+
+        <div class="shader-preview" style={`aspect-ratio: ${previewRatio};`}>
             <canvas id={canvasId} aria-label="Live shader preview"></canvas>
         </div>
     </div>
@@ -71,6 +73,47 @@ const codeId = `shader-code-${id}`;
                 editorEl.insertAdjacentElement("afterend", btn);
             }
         });
+
+        // Resizable split between editor and preview
+        const wrapper = el.querySelector<HTMLElement>(".editor-wrapper");
+        const resizer = el.querySelector<HTMLElement>(".resizer");
+        const canvasEl = document.getElementById(el.dataset.canvasId!) as HTMLCanvasElement | null;
+
+        if (wrapper && resizer && canvasEl) {
+            // Keep canvas WebGL dimensions in sync with CSS layout size
+            const ro = new ResizeObserver(() => {
+                canvasEl.width = canvasEl.clientWidth;
+                canvasEl.height = canvasEl.clientHeight;
+            });
+            ro.observe(canvasEl);
+
+            let dragging = false;
+            let startX = 0;
+            let startPreviewWidth = 0;
+
+            resizer.addEventListener("mousedown", (e) => {
+                dragging = true;
+                startX = e.clientX;
+                const previewCol = wrapper.querySelector<HTMLElement>(".shader-preview");
+                startPreviewWidth = previewCol ? previewCol.getBoundingClientRect().width : 260;
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+            });
+
+            document.addEventListener("mousemove", (e) => {
+                if (!dragging) return;
+                const delta = startX - e.clientX; // drag left = preview grows
+                const newWidth = Math.max(120, Math.min(600, startPreviewWidth + delta));
+                wrapper.style.gridTemplateColumns = `1fr 10px ${newWidth}px`;
+            });
+
+            document.addEventListener("mouseup", () => {
+                if (!dragging) return;
+                dragging = false;
+                document.body.style.cursor = "";
+                document.body.style.userSelect = "";
+            });
+        }
     });
 </script>
 
@@ -118,9 +161,33 @@ const codeId = `shader-code-${id}`;
 
     .editor-wrapper {
         display: grid;
-        grid-template-columns: 1fr 260px;
-        gap: 20px;
+        grid-template-columns: 1fr 10px 260px;
+        gap: 0;
         align-items: start;
+    }
+
+    .resizer {
+        width: 10px;
+        align-self: stretch;
+        cursor: col-resize;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .resizer::after {
+        content: "";
+        display: block;
+        width: 2px;
+        height: 40px;
+        border-radius: 1px;
+        background: var(--text-muted, #555);
+        opacity: 0.4;
+        transition: opacity 0.15s;
+    }
+
+    .resizer:hover::after {
+        opacity: 0.9;
     }
 
     /* editor */
@@ -192,6 +259,10 @@ const codeId = `shader-code-${id}`;
     @media (max-width: 800px) {
         .editor-wrapper {
             grid-template-columns: 1fr;
+        }
+
+        .resizer {
+            display: none;
         }
 
         .shader-preview {

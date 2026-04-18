@@ -2,7 +2,7 @@
 title: Moebius Shaders in Unity
 date: 2025-01-01
 summary: Building a real-time non-photorealistic renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
-draft: false
+draft: true
 ---
 
 ## Inspirations and goals
@@ -408,14 +408,14 @@ The problem is that the Scharr filter can't distinguish a geometric crease from 
 both produce edges, and the mesh ends up covered in unintended outlines.
 Resolving this would require a separate buffer or a masking pass (maybe a project for later?).
 
-The two playgrounds below illustrate the difference.
-Both use the same orbiting camera driven by `u_time`.
-In the first, the hatch pattern is computed from screen coordinates:
+The playground below illustrates the difference.
+Both halves use the same orbiting camera driven by `u_time`.
+The top sphere computes the hatch pattern from screen coordinates:
 the lines slide across the surface as the camera moves.
-In the second, the pattern uses the world-space position of the hit point:
+The bottom sphere uses the world-space position of the hit point:
 the lines stay anchored to the sphere regardless of camera angle.
 
-```glsl live
+```glsl live tall
 precision mediump float;
 uniform vec2 u_resolution;
 uniform float u_time;
@@ -432,8 +432,16 @@ vec3 calcNormal(vec3 p) {
 }
 
 void main() {
-    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+    // Split the canvas into two halves, one sphere per half
+    float halfH = u_resolution.y * 0.5;
+    bool isTop = gl_FragCoord.y >= halfH;
+    float PI = 3.14159265;
 
+    // Re-center UV within each half so both spheres appear the same size
+    float localY = isTop ? gl_FragCoord.y - halfH : gl_FragCoord.y;
+    vec2 uv = (vec2(gl_FragCoord.x, localY) - 0.5 * vec2(u_resolution.x, halfH)) / halfH;
+
+    // Orbit the camera around the sphere using u_time
     float angle = u_time * 0.5;
     vec3 ro = vec3(sin(angle) * 2.5, 0.6, cos(angle) * 2.5);
     vec3 forward = normalize(-ro);
@@ -441,6 +449,7 @@ void main() {
     vec3 up = cross(forward, right);
     vec3 rd = normalize(forward + uv.x * right + uv.y * up);
 
+    // Sphere raymarching
     float t = 0.0;
     bool hit = false;
     for (int i = 0; i < 64; i++) {
@@ -457,78 +466,29 @@ void main() {
         vec3 light = normalize(vec3(1.0, 1.5, 1.0));
         float NdotL = dot(n, light);
 
-        // Pattern from screen coordinates: slides with the camera
-        float scale = 12.0;
+        // lw is line width: the dark stripe occupies the first lw fraction of each period
         float lw = 0.15;
-        float h1 = step(lw, fract((gl_FragCoord.x + gl_FragCoord.y) / scale));
-        float h2 = step(lw, fract((gl_FragCoord.x - gl_FragCoord.y) / scale));
-        float h3 = step(lw, fract((gl_FragCoord.x * 2.0 + gl_FragCoord.y) / scale));
+        float h1 = 1.0;
+        float h2 = 1.0;
+        float h3 = 1.0;
 
-        float hatch = 0.0;
-        if (NdotL < 0.65) hatch = max(hatch, 1.0 - h1);
-        if (NdotL < 0.30) hatch = max(hatch, 1.0 - h2);
-        if (NdotL < 0.05) hatch = max(hatch, 1.0 - h3);
+        if (isTop) {
+            // Top: pattern from screen coordinates, slides with the camera
+            float scale = 12.0;
+            h1 = step(lw, fract((gl_FragCoord.x + gl_FragCoord.y) / scale));
+            h2 = step(lw, fract((gl_FragCoord.x - gl_FragCoord.y) / scale));
+            h3 = step(lw, fract((gl_FragCoord.x * 2.0 + gl_FragCoord.y) / scale));
+        } else {
+            // Bottom: pattern from spherical coordinates, anchored to the surface
+            float theta = atan(p.z, p.x) / PI; // longitude [-1, 1]
+            float phi = acos(clamp(p.y, -1.0, 1.0)) / PI; // colatitude [0, 1]
+            float scale = 22.0;
+            h1 = step(lw, fract((theta + phi) * scale));
+            h2 = step(lw, fract((theta - phi) * scale));
+            h3 = step(lw, fract((theta * 2.0 + phi) * scale));
+        }
 
-        col = mix(vec3(0.95), vec3(0.05), hatch);
-    }
-
-    gl_FragColor = vec4(col, 1.0);
-}
-```
-
-```glsl live
-precision mediump float;
-uniform vec2 u_resolution;
-uniform float u_time;
-
-float sdSphere(vec3 p, float r) { return length(p) - r; }
-
-vec3 calcNormal(vec3 p) {
-    vec2 e = vec2(0.001, 0.0);
-    return normalize(vec3(
-        sdSphere(p + e.xyy, 1.0) - sdSphere(p - e.xyy, 1.0),
-        sdSphere(p + e.yxy, 1.0) - sdSphere(p - e.yxy, 1.0),
-        sdSphere(p + e.yyx, 1.0) - sdSphere(p - e.yyx, 1.0)
-    ));
-}
-
-void main() {
-    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
-
-    float angle = u_time * 0.5;
-    vec3 ro = vec3(sin(angle) * 2.5, 0.6, cos(angle) * 2.5);
-    vec3 forward = normalize(-ro);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
-    vec3 up = cross(forward, right);
-    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
-
-    float t = 0.0;
-    bool hit = false;
-    for (int i = 0; i < 64; i++) {
-        float d = sdSphere(ro + rd * t, 1.0);
-        if (d < 0.001) { hit = true; break; }
-        t += d;
-        if (t > 10.0) break;
-    }
-
-    vec3 col = vec3(0.06);
-    if (hit) {
-        vec3 p = ro + rd * t;
-        vec3 n = calcNormal(p);
-        vec3 light = normalize(vec3(1.0, 1.5, 1.0));
-        float NdotL = dot(n, light);
-
-        // Spherical coordinates from surface position: lines follow the sphere's curvature
-        float PI = 3.14159265;
-        float theta = atan(p.z, p.x) / PI;
-        float phi = acos(clamp(p.y, -1.0, 1.0)) / PI;
-
-        float scale = 22.0;
-        float lw = 0.15;
-        float h1 = step(lw, fract((theta + phi) * scale));
-        float h2 = step(lw, fract((theta - phi) * scale));
-        float h3 = step(lw, fract((theta * 2.0 - phi) * scale));
-
+        // Add hatch layers progressively as the surface gets darker
         float hatch = 0.0;
         if (NdotL < 0.65) hatch = max(hatch, 1.0 - h1);
         if (NdotL < 0.30) hatch = max(hatch, 1.0 - h2);
