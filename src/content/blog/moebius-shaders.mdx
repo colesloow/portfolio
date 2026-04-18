@@ -53,13 +53,6 @@ The pass runs after the scene is fully rendered
 and detects edges by reading the depth, normal, and color buffers.
 No mesh modification needed: the detector works on pixels, not geometry.
 
-Another common approach is the inverted hull technique:
-each mesh is rendered twice, once normally, then scaled up slightly with backfaces visible,
-producing a solid halo around the geometry.
-It's stable and gives clean silhouettes, but only catches outer contours.
-Interior creases, folds, and surface details are invisible to it.
-A hybrid - hull for silhouettes, screen-space for interior detail - could be worth exploring.
-
 The starting point was a [tutorial by Digvijaysinh Gohil](https://www.youtube.com/watch?v=nc3a3THBFrg)
 covering two detection methods: depth-based and normal-based.
 Both produced clean results on solid geometry.
@@ -361,3 +354,189 @@ producing faint outlines where none were intended.
 {/* IMAGE: thin geometry (wire, branches) with broken/dotted outline - depth aliasing */}
 {/* IMAGE: grazing angle surface - outline disappears at shallow viewing angle */}
 {/* IMAGE: two objects at similar depth - no outline between them */}
+
+The inverted hull technique avoids most of these problems:
+each mesh is rendered twice, once normally, then scaled up slightly with backfaces visible,
+producing a solid halo around the geometry.
+It's stable and gives clean silhouettes even on thin geometry and at shallow angles.
+The tradeoff is that it only catches outer contours:
+interior creases, folds, and surface details are invisible to it.
+A hybrid approach (hull for silhouettes, screen-space for interior detail) could combine the best of both.
+
+## Hatching
+
+The hatching shader is closely based on the technique shown in
+[this video by Useless Game Dev](https://www.youtube.com/watch?v=jlKNOirh66E)
+(which by the way was also the initial spark for the project as a whole).
+The only addition in my version is a secondary outline drawn around cast shadows.
+
+### Hatch texture
+
+All hatching patterns are packed into a single texture.
+Each RGB channel holds a different layer: one angle for the lightest shadow zone,
+a denser or perpendicular pattern for the next zone, and so on.
+Sampling three independent channels from one texture costs the same as sampling one.
+
+{/* IMAGE: hatch texture visualized per channel - R, G, B shown separately, then combined */}
+
+### Brightness zones
+
+The shader reads pixel brightness and posterizes it into discrete zones.
+Each zone maps to a combination of texture channels.
+
+{/* ILLUSTRATION: brightness gradient -> posterized zones -> corresponding hatch layers (similar to the video diagram) */}
+
+Lit pixels show the base color.
+As brightness drops, the shader blends in one channel, then two,
+adding lines and cross-hatching progressively.
+
+{/* IMAGE: shader graph screenshot */}
+
+{/* IMAGE: hatching result on a simple object - lit/shadow/cross-hatch zones clearly visible */}
+
+{/* IMAGE: full scene with hatching applied */}
+
+### Limitation
+
+The texture is sampled in screen space.
+Useless Game Dev notes it himself: in an ideal world, the crosshatch pattern would follow the curve of the object it's on.
+Here it doesn't: move the camera, and the lines slide across the surface rather than staying anchored to it.
+On a still frame this is invisible, but it becomes noticeable on a moving camera.
+
+One approach is to embed the hatching lines into the normal buffer so they read as surface detail.
+The problem is that the Scharr filter can't distinguish a geometric crease from a hatch line:
+both produce edges, and the mesh ends up covered in unintended outlines.
+Resolving this would require a separate buffer or a masking pass (maybe a project for later?).
+
+The two playgrounds below illustrate the difference.
+Both use the same orbiting camera driven by `u_time`.
+In the first, the hatch pattern is computed from screen coordinates:
+the lines slide across the surface as the camera moves.
+In the second, the pattern uses the world-space position of the hit point:
+the lines stay anchored to the sphere regardless of camera angle.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+uniform float u_time;
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+vec3 calcNormal(vec3 p) {
+    vec2 e = vec2(0.001, 0.0);
+    return normalize(vec3(
+        sdSphere(p + e.xyy, 1.0) - sdSphere(p - e.xyy, 1.0),
+        sdSphere(p + e.yxy, 1.0) - sdSphere(p - e.yxy, 1.0),
+        sdSphere(p + e.yyx, 1.0) - sdSphere(p - e.yyx, 1.0)
+    ));
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+
+    float angle = u_time * 0.5;
+    vec3 ro = vec3(sin(angle) * 2.5, 0.6, cos(angle) * 2.5);
+    vec3 forward = normalize(-ro);
+    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+    vec3 up = cross(forward, right);
+    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
+
+    float t = 0.0;
+    bool hit = false;
+    for (int i = 0; i < 64; i++) {
+        float d = sdSphere(ro + rd * t, 1.0);
+        if (d < 0.001) { hit = true; break; }
+        t += d;
+        if (t > 10.0) break;
+    }
+
+    vec3 col = vec3(0.06);
+    if (hit) {
+        vec3 p = ro + rd * t;
+        vec3 n = calcNormal(p);
+        vec3 light = normalize(vec3(1.0, 1.5, 1.0));
+        float NdotL = dot(n, light);
+
+        // Pattern from screen coordinates: slides with the camera
+        float scale = 12.0;
+        float lw = 0.15;
+        float h1 = step(lw, fract((gl_FragCoord.x + gl_FragCoord.y) / scale));
+        float h2 = step(lw, fract((gl_FragCoord.x - gl_FragCoord.y) / scale));
+        float h3 = step(lw, fract((gl_FragCoord.x * 2.0 + gl_FragCoord.y) / scale));
+
+        float hatch = 0.0;
+        if (NdotL < 0.65) hatch = max(hatch, 1.0 - h1);
+        if (NdotL < 0.30) hatch = max(hatch, 1.0 - h2);
+        if (NdotL < 0.05) hatch = max(hatch, 1.0 - h3);
+
+        col = mix(vec3(0.95), vec3(0.05), hatch);
+    }
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+uniform float u_time;
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+vec3 calcNormal(vec3 p) {
+    vec2 e = vec2(0.001, 0.0);
+    return normalize(vec3(
+        sdSphere(p + e.xyy, 1.0) - sdSphere(p - e.xyy, 1.0),
+        sdSphere(p + e.yxy, 1.0) - sdSphere(p - e.yxy, 1.0),
+        sdSphere(p + e.yyx, 1.0) - sdSphere(p - e.yyx, 1.0)
+    ));
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+
+    float angle = u_time * 0.5;
+    vec3 ro = vec3(sin(angle) * 2.5, 0.6, cos(angle) * 2.5);
+    vec3 forward = normalize(-ro);
+    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+    vec3 up = cross(forward, right);
+    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
+
+    float t = 0.0;
+    bool hit = false;
+    for (int i = 0; i < 64; i++) {
+        float d = sdSphere(ro + rd * t, 1.0);
+        if (d < 0.001) { hit = true; break; }
+        t += d;
+        if (t > 10.0) break;
+    }
+
+    vec3 col = vec3(0.06);
+    if (hit) {
+        vec3 p = ro + rd * t;
+        vec3 n = calcNormal(p);
+        vec3 light = normalize(vec3(1.0, 1.5, 1.0));
+        float NdotL = dot(n, light);
+
+        // Spherical coordinates from surface position: lines follow the sphere's curvature
+        float PI = 3.14159265;
+        float theta = atan(p.z, p.x) / PI;
+        float phi = acos(clamp(p.y, -1.0, 1.0)) / PI;
+
+        float scale = 22.0;
+        float lw = 0.15;
+        float h1 = step(lw, fract((theta + phi) * scale));
+        float h2 = step(lw, fract((theta - phi) * scale));
+        float h3 = step(lw, fract((theta * 2.0 - phi) * scale));
+
+        float hatch = 0.0;
+        if (NdotL < 0.65) hatch = max(hatch, 1.0 - h1);
+        if (NdotL < 0.30) hatch = max(hatch, 1.0 - h2);
+        if (NdotL < 0.05) hatch = max(hatch, 1.0 - h3);
+
+        col = mix(vec3(0.95), vec3(0.05), hatch);
+    }
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
