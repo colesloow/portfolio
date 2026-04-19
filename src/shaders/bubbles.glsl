@@ -19,6 +19,9 @@ precision mediump int;
 
 uniform vec2  u_resolution;
 uniform float u_time;
+uniform float u_speed;  // animation speed multiplier (slider)
+uniform float u_blend;  // smooth union blending radius (slider)
+uniform float u_size;   // sphere radius multiplier (slider)
 
 // ------------------------------------------------------------------
 // Tunable constants
@@ -30,8 +33,6 @@ const vec3 BUBBLE_COLOR_B = vec3(0.55, 0.20, 1.00);
 const vec3 BUBBLE_COLOR_C = vec3(0.20, 0.55, 1.00);
 
 const float BUBBLE_ALPHA    = 0.7;  // unused in final output but kept for reference
-const float VELOCITY        = 0.5;  // global animation speed multiplier
-const float SMOOTH_K        = 1.5;  // blending radius for smooth union
 const float ISO_OFFSET      = 0.0;  // surface threshold offset (0 = exact sphere surface)
 const float SPHERE_RADIUS   = 3.5;  // orbit radius: how far spheres stray from origin
 const float MIN_RADIUS_FRAC = 0.6;  // minimum orbit fraction (keeps spheres from bunching at center)
@@ -132,15 +133,15 @@ SdfHit mapSceneSDF(vec3 p, float tB) {
     for (int i = 0; i < 16; i++) {
         vec3  c      = bubbleCenter(i, tB);
         float fi     = float(i);
-        // Individual sphere radius varies per index
-        float radius = mix(0.5, 1.0, fract(fi * 412.531 + 0.5124));
+        // Individual sphere radius varies per index, scaled by the size slider
+        float radius = mix(0.5, 1.0, fract(fi * 412.531 + 0.5124)) * u_size;
 
         SdfHit s;
         s.pos = p;
         s.d   = sdSphere(p - c, radius);
         s.col = bubblePalette(i);
 
-        acc = opSmoothUnionCol(acc, s, SMOOTH_K);
+        acc = opSmoothUnionCol(acc, s, u_blend);
     }
 
     return acc;
@@ -212,7 +213,7 @@ vec3 shadeBlinnPhong(vec3 N, vec3 V, vec3 albedo, out float outAlpha) {
 }
 
 void main() {
-    float tB = u_time * VELOCITY;
+    float tB = u_time * u_speed;
 
     // Map fragment coordinates to [-aspect, aspect] x [-1, 1] view space
     vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;

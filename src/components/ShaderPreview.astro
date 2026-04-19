@@ -2,15 +2,18 @@
 // Renders a GLSL fragment shader on a full-screen WebGL canvas.
 // Accepts the shader source as a raw string via the `code` prop.
 // Uniforms available to the shader: u_resolution (vec2), u_time (float).
+// Optional `controls` prop: array of { name, label, min, max, step, default }
+// that renders range sliders and wires their values to shader uniforms.
 // The canvas background is transparent so the page background shows through.
 //
 // On touch devices (mobile + tablet), the shader does not auto-start to avoid
 // GPU strain. An overlay prompts the user to enable it manually, and a
 // pause/resume button is shown once active.
-const { code } = Astro.props;
+const { code, controls = [] } = Astro.props;
 const canvasId = `shader-${Math.random().toString(36).slice(2)}`;
-const gateId   = `${canvasId}-gate`;
+const gateId = `${canvasId}-gate`;
 const toggleId = `${canvasId}-toggle`;
+const slidersId = `${canvasId}-sliders`;
 ---
 
 <div class="shader-preview">
@@ -18,12 +21,47 @@ const toggleId = `${canvasId}-toggle`;
 
     <!-- Shown on touch devices instead of auto-starting the render loop (hidden by default via CSS) -->
     <div class="shader-gate" id={gateId}>
-        <svg class="gate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg
+            class="gate-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+        >
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
         </svg>
-        <p class="gate-message">This shader is GPU-intensive and may affect performance on mobile. Enable it only if your device handles it well.</p>
+        <p class="gate-message">
+            This shader is GPU-intensive and may affect performance on mobile. Enable it only if your device handles it
+            well.
+        </p>
         <button class="gate-btn" id={`${gateId}-btn`}>Enable visualization</button>
     </div>
+
+    {
+        controls.length > 0 && (
+            <div class="shader-sliders" id={slidersId}>
+                {controls.map(
+                    (c: { name: string; label: string; min: number; max: number; step: number; default: number }) => (
+                        <label class="slider-row">
+                            <span class="slider-label">{c.label}</span>
+                            <input
+                                type="range"
+                                data-uniform={c.name}
+                                min={c.min}
+                                max={c.max}
+                                step={c.step}
+                                value={c.default}
+                            />
+                            <span class="slider-value">{c.default}</span>
+                        </label>
+                    ),
+                )}
+            </div>
+        )
+    }
 
     <!-- Pause / resume toggle, visible only after the shader has been activated -->
     <button class="shader-toggle" id={toggleId} aria-label="Pause shader">
@@ -126,14 +164,52 @@ const toggleId = `${canvasId}-toggle`;
         width: 16px;
         height: 16px;
     }
+
+    .shader-sliders {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 16px 4px 4px;
+        max-width: 360px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.85rem;
+        cursor: pointer;
+    }
+
+    .slider-label {
+        min-width: 48px;
+        color: var(--text);
+    }
+
+    .slider-row input[type="range"] {
+        flex: 1;
+        accent-color: var(--accent);
+        cursor: pointer;
+    }
+
+    .slider-value {
+        min-width: 36px;
+        text-align: right;
+        color: var(--text-muted);
+        font-family: monospace;
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+    }
 </style>
 
-<script is:inline define:vars={{ canvasId, gateId, toggleId, code }}>
+<script is:inline define:vars={{ canvasId, gateId, toggleId, slidersId, code, controls }}>
     window.addEventListener("DOMContentLoaded", () => {
-        const canvas   = document.getElementById(canvasId);
-        const gate     = document.getElementById(gateId);
-        const gateBtn  = document.getElementById(gateId + "-btn");
-        const toggle   = document.getElementById(toggleId);
+        const canvas = document.getElementById(canvasId);
+        const gate = document.getElementById(gateId);
+        const gateBtn = document.getElementById(gateId + "-btn");
+        const toggle = document.getElementById(toggleId);
 
         if (!(canvas instanceof HTMLCanvasElement)) {
             console.error("ShaderPreview: canvas not found");
@@ -142,13 +218,13 @@ const toggleId = `${canvasId}-toggle`;
 
         // Try standard webgl, fall back to experimental-webgl for older mobile browsers.
         const ctxOptions = { antialias: false, alpha: true };
-        const gl = (
-            canvas.getContext("webgl", ctxOptions) ||
-            canvas.getContext("experimental-webgl", ctxOptions)
-        );
+        const gl = canvas.getContext("webgl", ctxOptions) || canvas.getContext("experimental-webgl", ctxOptions);
 
         if (!gl) {
-            canvas.insertAdjacentHTML("afterend", "<p class='shader-error'>WebGL is not supported in this browser.</p>");
+            canvas.insertAdjacentHTML(
+                "afterend",
+                "<p class='shader-error'>WebGL is not supported in this browser.</p>",
+            );
             canvas.remove();
             return;
         }
@@ -176,7 +252,7 @@ const toggleId = `${canvasId}-toggle`;
             return shaderObj;
         }
 
-        const vertexShader   = compile(gl.VERTEX_SHADER, vertexSrc);
+        const vertexShader = compile(gl.VERTEX_SHADER, vertexSrc);
         const fragmentShader = compile(gl.FRAGMENT_SHADER, code);
 
         const program = gl.createProgram();
@@ -184,6 +260,22 @@ const toggleId = `${canvasId}-toggle`;
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
         gl.useProgram(program);
+
+        // Cache uniform locations for slider-controlled uniforms and set initial values.
+        const customUniforms = {};
+        for (const ctrl of controls) {
+            const loc = gl.getUniformLocation(program, ctrl.name);
+            customUniforms[ctrl.name] = loc;
+            gl.uniform1f(loc, ctrl.default);
+        }
+
+        // Wire slider inputs: update displayed value and it will be picked up next frame.
+        const sliderInputs = document.querySelectorAll(`#${slidersId} input[type=range]`);
+        sliderInputs.forEach((input) => {
+            input.addEventListener("input", () => {
+                input.nextElementSibling.textContent = input.value;
+            });
+        });
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -199,7 +291,7 @@ const toggleId = `${canvasId}-toggle`;
         gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
 
         let animFrameId = null;
-        let running     = false;
+        let running = false;
 
         function render(time) {
             if (gl.isContextLost()) {
@@ -211,10 +303,18 @@ const toggleId = `${canvasId}-toggle`;
             gl.clear(gl.COLOR_BUFFER_BIT);
 
             const u_resolution = gl.getUniformLocation(program, "u_resolution");
-            const u_time       = gl.getUniformLocation(program, "u_time");
+            const u_time = gl.getUniformLocation(program, "u_time");
 
             gl.uniform2f(u_resolution, canvas.width, canvas.height);
             gl.uniform1f(u_time, time * 0.001);
+
+            // Update slider-controlled uniforms from current input values.
+            sliderInputs.forEach((input) => {
+                const loc = customUniforms[input.dataset.uniform];
+                if (loc !== null && loc !== undefined) {
+                    gl.uniform1f(loc, parseFloat(input.value));
+                }
+            });
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
@@ -238,28 +338,36 @@ const toggleId = `${canvasId}-toggle`;
 
         function setToggleIcon(paused) {
             if (!toggle) return;
-            toggle.querySelector(".icon-pause").style.display = paused ? "none"  : "";
-            toggle.querySelector(".icon-play").style.display  = paused ? ""      : "none";
+            toggle.querySelector(".icon-pause").style.display = paused ? "none" : "";
+            toggle.querySelector(".icon-play").style.display = paused ? "" : "none";
             toggle.setAttribute("aria-label", paused ? "Resume shader" : "Pause shader");
         }
 
-        canvas.addEventListener("webglcontextlost", (e) => {
-            e.preventDefault();
-            stopRender();
-        }, false);
+        canvas.addEventListener(
+            "webglcontextlost",
+            (e) => {
+                e.preventDefault();
+                stopRender();
+            },
+            false,
+        );
 
-        canvas.addEventListener("webglcontextrestored", () => {
-            gl.enable(gl.BLEND);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            gl.clearColor(0, 0, 0, 0);
-            startRender();
-            setToggleIcon(false);
-        }, false);
+        canvas.addEventListener(
+            "webglcontextrestored",
+            () => {
+                gl.enable(gl.BLEND);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+                gl.clearColor(0, 0, 0, 0);
+                startRender();
+                setToggleIcon(false);
+            },
+            false,
+        );
 
         // Detect touch devices via ontouchstart/maxTouchPoints, which is reliably
         // supported across all mobile browsers (more robust than the hover/pointer
         // media query which has inconsistent support on some Android browsers).
-        const isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
+        const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
         if (isTouch && gate && gateBtn && toggle) {
             // Show the gate overlay instead of auto-starting
