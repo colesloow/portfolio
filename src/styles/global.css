@@ -290,8 +290,28 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
 .project-content img,
 .article-content img {
     width: 100%;
+    height: auto;
     border-radius: 8px;
     margin: 2rem 0;
+}
+
+.project-content figure,
+.article-content figure {
+    margin: 2rem 0;
+}
+
+.project-content figure img,
+.article-content figure img {
+    margin: 0;
+}
+
+.project-content figure figcaption,
+.article-content figure figcaption {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
 }
 
 .article-content .image-grid {
@@ -310,6 +330,11 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
     aspect-ratio: 16 / 9;
     overflow: hidden;
     border-radius: 4px;
+}
+
+.article-content .image-grid.square figure,
+.article-content .image-grid.square > img {
+    aspect-ratio: 1 / 1;
 }
 
 .article-content .image-grid figure {
@@ -396,6 +421,15 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-family: monospace;
+}
+
+/* Constrained-width image */
+
+.article-content .image-md,
+.project-content .image-md {
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Collapsible code blocks */

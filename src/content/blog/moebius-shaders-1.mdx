@@ -1,19 +1,26 @@
 ---
 title: "Moebius Shaders in Unity - Part 1"
 date: 2025-01-01
-summary: Building a real-time non-photorealistic renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
-draft: false
+summary: Outlines and color gradient in a real-time NPR renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
+draft: true
 ---
 
-import { Image } from 'astro:assets';
-import moebiusEdena2 from '../../assets/images/blog/moebius-shaders/moebius-edena-2.jpg';
-import moebiusEdenaFullMoon from '../../assets/images/blog/moebius-shaders/moebius-edena-full_moon.jpg';
-import moebiusArzak from '../../assets/images/blog/moebius-shaders/moebius-arzak-echappee-belle.jpg';
-import moebiusHermes from '../../assets/images/blog/moebius-shaders/moebius-voyagehermes.jpg';
-import sable1 from '../../assets/images/blog/moebius-shaders/sable-1.jpg';
-import sable2 from '../../assets/images/blog/moebius-shaders/sable-2.jpeg';
-import sable3 from '../../assets/images/blog/moebius-shaders/sable-3.jpg';
-import sable4 from '../../assets/images/blog/moebius-shaders/sable-4.jpg';
+import { Image } from "astro:assets";
+import moebiusEdena2 from "../../assets/images/blog/moebius-shaders/moebius-edena-2.jpg";
+import moebiusEdenaFullMoon from "../../assets/images/blog/moebius-shaders/moebius-edena-full_moon.jpg";
+import moebiusArzak from "../../assets/images/blog/moebius-shaders/moebius-arzak-echappee-belle.jpg";
+import moebiusHermes from "../../assets/images/blog/moebius-shaders/moebius-voyagehermes.jpg";
+import sable1 from "../../assets/images/blog/moebius-shaders/sable-1.jpg";
+import sable2 from "../../assets/images/blog/moebius-shaders/sable-2.jpeg";
+import sable3 from "../../assets/images/blog/moebius-shaders/sable-3.jpg";
+import sable4 from "../../assets/images/blog/moebius-shaders/sable-4.jpg";
+import captUnlitScene from "../../assets/images/blog/moebius-shaders/capt-unlit-basescne.png";
+import captDepthBuffer from "../../assets/images/blog/moebius-shaders/capt-depthbuffer.png";
+import captDepthbasedOutline from "../../assets/images/blog/moebius-shaders/capt-depthbased-outline.png";
+import captDepthnormalbasedOutline from "../../assets/images/blog/moebius-shaders/capt-depthnormalbased-outline.png";
+import captTransparent from "../../assets/images/blog/moebius-shaders/capt-transparent.png";
+import captColorbasedOutline from "../../assets/images/blog/moebius-shaders/capt-colorbased-outline.png";
+import captLimitationsExample from "../../assets/images/blog/moebius-shaders/capt-limitations-example.png";
 
 ## Inspirations and goals
 
@@ -69,7 +76,7 @@ Instead of simulating physical light, the goal is graphic legibility, with
 flat colors, controlled shadows, and ink-like outlines.
 All object shaders are unlit: no light probes, no global illumination.
 Each one computes its own shading from a single directional light,
-with lit and shadow colors defined directly by the artist.
+with lit and shadow colors exposed as inspector properties.
 
 The pipeline has two layers.
 The first is a set of object shaders (color gradient, hatching, bubble, skydome), all unlit.
@@ -153,10 +160,23 @@ void main() {
 }
 ```
 
-{/* IMAGE: depth buffer screenshot from Unity - grayscale, same scene */}
+The first image is the test environment built in Unity.
+All materials are unlit and assigned flat colors chosen only to distinguish the objects from each
+other: no textures, no lighting, no shading of any kind.
+The second is the depth buffer as read by the GPU: each pixel stores the distance from the camera
+to the nearest surface.
+Closer objects appear brighter, farther ones darker.
+Flat areas of the same surface blend into a continuous gradient in perspective,
+while geometry edges produce sharp jumps in value.
+Those jumps are exactly what the Scharr filter will look for.
 
-The second one applies the Scharr filter to those depth values.
-It samples the 8 neighboring pixels, computes the Scharr gradient magnitude from those depth values,
+<div class="image-grid">
+    <Image src={captUnlitScene} alt="Test scene with placeholder unlit materials" />
+    <Image src={captDepthBuffer} alt="Depth buffer of the test scene, grayscale" />
+</div>
+
+Now let's add some outlines. The following shader applies the Scharr filter to the depth buffer:
+it samples the 8 neighboring pixels, computes the gradient magnitude from those depth values,
 and marks a pixel as an edge if that magnitude exceeds a threshold.
 
 ```glsl live
@@ -212,8 +232,6 @@ void main() {
     gl_FragColor = vec4(col, 1.0);
 }
 ```
-
-{/* IMAGE: depth-based outline result from Unity - same scene, outlines visible */}
 
 Here is the same logic in the actual Unity HLSL.
 The Scharr kernels are shared across all three detection methods, so they live in a struct:
@@ -272,14 +290,26 @@ void DepthBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
 }
 ```
 
-{/* IMAGE: before/after Unity screenshot with outlines on/off */}
+The result in the Unity scene: the depth-based pass already captures the main silhouettes.
+
+<Image src={captDepthbasedOutline} alt="Test scene with depth-based outlines only" />
+
+As you can see, we have some problems. The sphere outline is broken and jagged. On a curved surface,
+depth changes gradually near the silhouette, and the Scharr gradient falls below the threshold
+at certain angles, producing gaps. Also, the floor is almost entirely black. When the camera looks
+nearly parallel to a flat surface,
+that surface has a steep depth gradient in perspective even though it is geometrically flat,
+so the filter fires everywhere on it and fills it with false outlines.
+
+For now I'm fine with it, since adding normal-based detection on top will fix both.
 
 ### Normal-based detection
 
 The normal buffer stores, for each pixel, a unit vector pointing perpendicular to the surface.
 On a flat area, neighboring pixels have nearly identical normals: their dot product is close to 1.
 At a crease or fold, the normals suddenly diverge, and the dot product drops sharply.
-Applying the Scharr filter to these dot product values detects exactly those orientation discontinuities.
+Applying the Scharr filter to these dot product values detects exactly those orientation
+discontinuities.
 
 {/* ILLUSTRATION: schéma - deux surfaces qui se rejoignent en angle, vecteurs normaux dessinés sur chaque face, dot product ~1 sur la surface plane, dot product bas à la crête */}
 
@@ -318,11 +348,20 @@ void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
 ```
 
 This catches detail that depth-based detection misses:
-interior creases, folds, and surface ridges where depth barely changes but the orientation shifts sharply.
+interior creases, folds, and surface ridges where depth barely changes but the orientation
+shifts sharply.
+
+<Image src={captDepthnormalbasedOutline} alt="Test scene with depth and normal-based outlines combined" />
+
+The result is much better. The floor is clean, the sphere has a smooth continuous outline,
+and the cube shows interior edges that depth alone would have missed.
 
 Both methods work on solid geometry. But what happens when a transparent object is in the scene?
 
-{/* IMAGE: capture d'un objet transparent dans la scène, sans outline - légende : "where did the outline go?" */}
+<figure>
+    <Image src={captTransparent} alt="Transparent bubble in the scene, no outline" />
+    <figcaption>where did the outlines go?</figcaption>
+</figure>
 
 As you can see, transparent geometry doesn't write to the depth or normal buffers,
 so both filters see nothing where the object should be.
@@ -363,6 +402,10 @@ void ColorBasedOutlinesFromSamples_float(
 }
 ```
 
+<Image src={captColorbasedOutline} alt="Transparent bubble with outlines from color-based detection" />
+
+All three passes combined: the bubble now has a clean outline, and so does everything else.
+
 ### Resolution awareness
 
 The outline pass samples neighbors at a UV offset of `OutlinesThickness / screen_resolution`.
@@ -375,162 +418,30 @@ whatever the rendering resolution.
 
 ### Limitations
 
-Depth-based detection aliases on thin geometry
-and can miss surfaces seen nearly edge-on, where depth barely changes across the silhouette.
-It also fails when two surfaces are at nearly the same depth:
-the gradient sees no discontinuity, even if the geometry is distinct.
-Normal-based detection doesn't have that last problem,
-but it can fire on smooth curved surfaces where normals shift gradually,
-producing faint outlines where none were intended.
+The main limitation is thin geometry.
+Small objects like brackets or narrow shelves produce incomplete or missing outlines,
+because the depth discontinuity they create is too small for the filter to catch reliably at a
+given resolution.
 
-{/* IMAGE: thin geometry (wire, branches) with broken/dotted outline - depth aliasing */}
-{/* IMAGE: grazing angle surface - outline disappears at shallow viewing angle */}
-{/* IMAGE: two objects at similar depth - no outline between them */}
+<div class="image-md">
+    <Image
+        src={captLimitationsExample}
+        alt="Scene with small shelf brackets showing incomplete outlines on thin geometry"
+    />
+</div>
 
-The inverted hull technique avoids most of these problems:
+The inverted hull technique would fix this:
 each mesh is rendered twice, once normally, then scaled up slightly with backfaces visible,
-producing a solid halo around the geometry.
-It's stable and gives clean silhouettes even on thin geometry and at shallow angles.
-The tradeoff is that it only catches outer contours:
-interior creases, folds, and surface details are invisible to it.
-A hybrid approach (hull for silhouettes, screen-space for interior detail) could combine the best of both.
+producing a solid outline that doesn't depend on depth differences in screen space.
+It handles thin geometry cleanly regardless of size or distance.
+The tradeoff is that it only produces outer silhouettes,
+so interior creases and surface details would still need the screen-space pass on top of it.
+A hybrid approach (hull for silhouettes, screen-space for interior detail) could combine the best
+of both. Maybe a project for later?
 
-## Hatching
+## Color gradient
 
-The hatching shader is closely based on the technique shown in
-[this video by Useless Game Dev](https://www.youtube.com/watch?v=jlKNOirh66E)
-(which by the way was also the initial spark for the project as a whole).
-The only addition in my version is a secondary outline drawn around cast shadows.
+{/* TODO: color gradient + shadow calculation */}
 
-### Hatch texture
-
-All hatching patterns are packed into a single texture.
-Each RGB channel holds a different layer: one angle for the lightest shadow zone,
-a denser or perpendicular pattern for the next zone, and so on.
-Sampling three independent channels from one texture costs the same as sampling one.
-
-{/* IMAGE: hatch texture visualized per channel - R, G, B shown separately, then combined */}
-
-### Brightness zones
-
-The shader reads pixel brightness and posterizes it into discrete zones.
-Each zone maps to a combination of texture channels.
-
-{/* ILLUSTRATION: brightness gradient -> posterized zones -> corresponding hatch layers (similar to the video diagram) */}
-
-Lit pixels show the base color.
-As brightness drops, the shader blends in one channel, then two,
-adding lines and cross-hatching progressively.
-
-{/* IMAGE: shader graph screenshot */}
-
-{/* IMAGE: hatching result on a simple object - lit/shadow/cross-hatch zones clearly visible */}
-
-{/* IMAGE: full scene with hatching applied */}
-
-### Limitation
-
-The texture is sampled in screen space.
-Useless Game Dev notes it himself: in an ideal world, the crosshatch pattern would follow the curve of the object it's on.
-Here it doesn't: move the camera, and the lines slide across the surface rather than staying anchored to it.
-On a still frame this is invisible, but it becomes noticeable on a moving camera.
-
-One approach is to embed the hatching lines into the normal buffer so they read as surface detail.
-The problem is that the Scharr filter can't distinguish a geometric crease from a hatch line:
-both produce edges, and the mesh ends up covered in unintended outlines.
-Resolving this would require a separate buffer or a masking pass (maybe a project for later?).
-
-The playground below illustrates the difference.
-Both halves use the same orbiting camera driven by `u_time`.
-The top sphere computes the hatch pattern from screen coordinates:
-the lines slide across the surface as the camera moves.
-The bottom sphere uses the world-space position of the hit point:
-the lines stay anchored to the sphere regardless of camera angle.
-
-```glsl live tall
-precision mediump float;
-uniform vec2 u_resolution;
-uniform float u_time;
-
-float sdSphere(vec3 p, float r) { return length(p) - r; }
-
-vec3 calcNormal(vec3 p) {
-    vec2 e = vec2(0.001, 0.0);
-    return normalize(vec3(
-        sdSphere(p + e.xyy, 1.0) - sdSphere(p - e.xyy, 1.0),
-        sdSphere(p + e.yxy, 1.0) - sdSphere(p - e.yxy, 1.0),
-        sdSphere(p + e.yyx, 1.0) - sdSphere(p - e.yyx, 1.0)
-    ));
-}
-
-void main() {
-    // Split the canvas into two halves, one sphere per half
-    float halfH = u_resolution.y * 0.5;
-    bool isTop = gl_FragCoord.y >= halfH;
-    float PI = 3.14159265;
-
-    // Re-center UV within each half so both spheres appear the same size
-    float localY = isTop ? gl_FragCoord.y - halfH : gl_FragCoord.y;
-    vec2 uv = (vec2(gl_FragCoord.x, localY) - 0.5 * vec2(u_resolution.x, halfH)) / halfH;
-
-    // Orbit the camera around the sphere using u_time
-    float angle = u_time * 0.5;
-    vec3 ro = vec3(sin(angle) * 2.5, 0.6, cos(angle) * 2.5);
-    vec3 forward = normalize(-ro);
-    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
-    vec3 up = cross(forward, right);
-    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
-
-    // Sphere raymarching
-    float t = 0.0;
-    bool hit = false;
-    for (int i = 0; i < 64; i++) {
-        float d = sdSphere(ro + rd * t, 1.0);
-        if (d < 0.001) { hit = true; break; }
-        t += d;
-        if (t > 10.0) break;
-    }
-
-    vec3 col = vec3(0.06);
-    if (hit) {
-        vec3 p = ro + rd * t;
-        vec3 n = calcNormal(p);
-        vec3 light = normalize(vec3(1.0, 1.5, 1.0));
-        float NdotL = dot(n, light);
-
-        // lw is line width: the dark stripe occupies the first lw fraction of each period
-        float lw = 0.15;
-        float h1 = 1.0;
-        float h2 = 1.0;
-        float h3 = 1.0;
-
-        if (isTop) {
-            // Top: pattern from screen coordinates, slides with the camera
-            float scale = 12.0;
-            h1 = step(lw, fract((gl_FragCoord.x + gl_FragCoord.y) / scale));
-            h2 = step(lw, fract((gl_FragCoord.x - gl_FragCoord.y) / scale));
-            h3 = step(lw, fract((gl_FragCoord.x * 2.0 + gl_FragCoord.y) / scale));
-        } else {
-            // Bottom: pattern from spherical coordinates, anchored to the surface
-            float theta = atan(p.z, p.x) / PI; // longitude [-1, 1]
-            float phi = acos(clamp(p.y, -1.0, 1.0)) / PI; // colatitude [0, 1]
-            float scale = 22.0;
-            h1 = step(lw, fract((theta + phi) * scale));
-            h2 = step(lw, fract((theta - phi) * scale));
-            h3 = step(lw, fract((theta * 2.0 + phi) * scale));
-        }
-
-        // Add hatch layers progressively as the surface gets darker
-        float hatch = 0.0;
-        if (NdotL < 0.65) hatch = max(hatch, 1.0 - h1);
-        if (NdotL < 0.30) hatch = max(hatch, 1.0 - h2);
-        if (NdotL < 0.05) hatch = max(hatch, 1.0 - h3);
-
-        col = mix(vec3(0.95), vec3(0.05), hatch);
-    }
-
-    gl_FragColor = vec4(col, 1.0);
-}
-```
-
-The outline and hatching passes are the core of the effect. Everything else (bubble shader, color gradient, skydome) builds on top of the same pipeline and is covered in part 2.
+The outline pass and the color gradient shader together establish the visual language of the scene.
+Hatching, bubble, and skydome are covered in part 2.
