@@ -2,27 +2,33 @@
 title: "Moebius Shaders in Unity - Part 1"
 date: 2025-01-01
 summary: Outlines and color gradient in a real-time NPR renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
-draft: true
+draft: false
 ---
 
 import { Image } from "astro:assets";
-import moebiusEdena2 from "../../assets/images/blog/moebius-shaders/moebius-edena-2.jpg";
-import moebiusEdenaFullMoon from "../../assets/images/blog/moebius-shaders/moebius-edena-full_moon.jpg";
-import moebiusArzak from "../../assets/images/blog/moebius-shaders/moebius-arzak-echappee-belle.jpg";
-import moebiusHermes from "../../assets/images/blog/moebius-shaders/moebius-voyagehermes.jpg";
-import sable1 from "../../assets/images/blog/moebius-shaders/sable-1.jpg";
-import sable2 from "../../assets/images/blog/moebius-shaders/sable-2.jpeg";
-import sable3 from "../../assets/images/blog/moebius-shaders/sable-3.jpg";
-import sable4 from "../../assets/images/blog/moebius-shaders/sable-4.jpg";
-import captUnlitScene from "../../assets/images/blog/moebius-shaders/capt-unlit-basescne.png";
-import captDepthBuffer from "../../assets/images/blog/moebius-shaders/capt-depthbuffer.png";
-import captDepthbasedOutline from "../../assets/images/blog/moebius-shaders/capt-depthbased-outline.png";
-import captDepthnormalbasedOutline from "../../assets/images/blog/moebius-shaders/capt-depthnormalbased-outline.png";
-import captTransparent from "../../assets/images/blog/moebius-shaders/capt-transparent.png";
-import captColorbasedOutline from "../../assets/images/blog/moebius-shaders/capt-colorbased-outline.png";
-import captLimitationsExample from "../../assets/images/blog/moebius-shaders/capt-limitations-example.png";
-import captCelShading from "../../assets/images/blog/moebius-shaders/capt-celshading.png";
-import captShadowCasting from "../../assets/images/blog/moebius-shaders/capt-shadowcasting.png";
+import captUnlitScene from "../../assets/images/blog/moebius-shaders/captures/capt-unlit-basescne.png";
+import captDepthBuffer from "../../assets/images/blog/moebius-shaders/captures/capt-depthbuffer.png";
+import captDepthbasedOutline from "../../assets/images/blog/moebius-shaders/captures/capt-depthbased-outline.png";
+import captDepthnormalbasedOutline from "../../assets/images/blog/moebius-shaders/captures/capt-depthnormalbased-outline.png";
+import captTransparent from "../../assets/images/blog/moebius-shaders/captures/capt-transparent.png";
+import captColorbasedOutline from "../../assets/images/blog/moebius-shaders/captures/capt-colorbased-outline.png";
+import captLimitationsExample from "../../assets/images/blog/moebius-shaders/captures/capt-limitations-example.png";
+import captCelShading from "../../assets/images/blog/moebius-shaders/captures/capt-celshading.png";
+import captShadowCasting from "../../assets/images/blog/moebius-shaders/captures/capt-shadowcasting.png";
+
+export const _refModules = import.meta.glob("../../assets/images/blog/moebius-shaders/references/*.{jpg,jpeg,png}", { eager: true });
+export const moebiusImages = [
+    { file: "moebius-edena-2.jpg", caption: "Les voyages d'Edena" },
+    { file: "moebius-edena-full_moon.jpg", caption: "Les voyages d'Edena" },
+    { file: "moebius-arzak-echappee-belle.jpg", caption: "Affiche Arzak — L'échappée belle" },
+    { file: "moebius-voyagehermes.jpg", caption: "Illustration pour le parfum Voyage d'Hermès" },
+].map(({ file, caption }) => ({
+    src: _refModules[`../../assets/images/blog/moebius-shaders/references/${file}`].default,
+    caption,
+}));
+
+export const _sableModules = import.meta.glob("../../assets/images/blog/moebius-shaders/sable/*.{jpg,jpeg,png}", { eager: true });
+export const sableImages = Object.values(_sableModules).map((m) => m.default);
 
 ## Inspirations and goals
 
@@ -33,22 +39,12 @@ and his concept work shaped the aesthetics of Alien, Tron, and The Fifth Element
 His wife said his exceptional precision came from his severe myopia.
 
 <div class="image-grid">
-    <figure>
-        <Image src={moebiusEdena2} alt="Les voyages d'Edena" />
-        <figcaption>Les voyages d'Edena</figcaption>
-    </figure>
-    <figure>
-        <Image src={moebiusEdenaFullMoon} alt="Les voyages d'Edena - Full Moon" />
-        <figcaption>Les voyages d'Edena</figcaption>
-    </figure>
-    <figure>
-        <Image src={moebiusArzak} alt="Affiche Arzak - L'échappée belle" />
-        <figcaption>Affiche Arzak - L'échappée belle</figcaption>
-    </figure>
-    <figure>
-        <Image src={moebiusHermes} alt="Illustration pour le parfum Voyage d'Hermès" />
-        <figcaption>Illustration pour le parfum Voyage d'Hermès</figcaption>
-    </figure>
+    {moebiusImages.map(({ src, caption }) => (
+        <figure>
+            <Image src={src} alt={caption} />
+            <figcaption>{caption}</figcaption>
+        </figure>
+    ))}
 </div>
 
 In France he's something of a monument,
@@ -60,10 +56,7 @@ I came back to his work again when Sable came out in 2021,
 a game by Shedworks that used his iconic graphic style as a direct visual reference.
 
 <div class="image-grid">
-    <Image src={sable1} alt="Sable" />
-    <Image src={sable2} alt="Sable" />
-    <Image src={sable3} alt="Sable" />
-    <Image src={sable4} alt="Sable" />
+    {sableImages.map((src) => <Image src={src} alt="Sable" />)}
 </div>
 
 This project started from wanting to understand how that graphic logic actually works,
@@ -621,3 +614,9 @@ on neighboring surfaces, and the outline pass runs on top of everything.
 
 The outline pass and the color gradient shader together establish the visual language of the scene.
 Hatching, bubble, and skydome are covered in part 2.
+
+## Sources
+
+- Digvijaysinh Gohil. _Outline Shader in Unity URP._ <a href="https://www.youtube.com/watch?v=nc3a3THBFrg" target="_blank" rel="noopener noreferrer" aria-label="Digvijaysinh Gohil: Outline Shader in Unity URP (opens in new tab)">youtube.com</a>
+- Akenine-Möller, T., Haines, E., Hoffman, N. (2008). _Real-Time Rendering_, Third Edition. A K Peters.
+- Wikipedia. _Sobel operator._ <a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" rel="noopener noreferrer" aria-label="Wikipedia: Sobel operator (opens in new tab)">en.wikipedia.org</a>
