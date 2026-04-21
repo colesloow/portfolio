@@ -21,6 +21,8 @@ import captDepthnormalbasedOutline from "../../assets/images/blog/moebius-shader
 import captTransparent from "../../assets/images/blog/moebius-shaders/capt-transparent.png";
 import captColorbasedOutline from "../../assets/images/blog/moebius-shaders/capt-colorbased-outline.png";
 import captLimitationsExample from "../../assets/images/blog/moebius-shaders/capt-limitations-example.png";
+import captCelShading from "../../assets/images/blog/moebius-shaders/capt-celshading.png";
+import captShadowCasting from "../../assets/images/blog/moebius-shaders/capt-shadowcasting.png";
 
 ## Inspirations and goals
 
@@ -113,7 +115,9 @@ G_x = \begin{bmatrix} -3 & 0 & +3 \\ -10 & 0 & +10 \\ -3 & 0 & +3 \end{bmatrix} 
 G_y = \begin{bmatrix} -3 & -10 & -3 \\ 0 & 0 & 0 \\ +3 & +10 & +3 \end{bmatrix} * I
 $$
 
-$$|G| = \sqrt{G_x^2 + G_y^2}$$
+$$
+|G| = \sqrt{G_x^2 + G_y^2}
+$$
 
 A pixel becomes an edge if $|G|$ exceeds a threshold.
 
@@ -441,7 +445,179 @@ of both. Maybe a project for later?
 
 ## Color gradient
 
-{/* TODO: color gradient + shadow calculation */}
+The color gradient shader is the base layer all scene objects build on.
+Each object computes its own shading from a single directional light, with no light probes or 
+global illumination.
+The shader maps that lighting to two colors: one for lit surfaces, one for shadow,
+with a controllable gradient between them.
+
+### Light mask
+
+The starting point is the Lambert diffuse term, one of the oldest models in rendering.
+It states that the intensity of light on a surface is proportional to the cosine of the angle
+between the surface normal and the light direction, which in code is a simple dot product.
+A surface facing directly toward the light returns 1; edge-on returns 0; facing away goes negative,
+clamped to 0 since those faces receive no light.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+vec3 getNormal(vec3 p) {
+    vec2 e = vec2(0.001, 0.0);
+    return normalize(vec3(
+        sdSphere(p + e.xyy, 0.55) - sdSphere(p - e.xyy, 0.55),
+        sdSphere(p + e.yxy, 0.55) - sdSphere(p - e.yxy, 0.55),
+        sdSphere(p + e.yyx, 0.55) - sdSphere(p - e.yyx, 0.55)
+    ));
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+    vec3 ro = vec3(0.0, 0.0, 2.0);
+    vec3 rd = normalize(vec3(uv, -1.5));
+    vec3 lightDir = normalize(vec3(1.0, 1.0, 0.5));
+
+    vec3 col = vec3(0.08);
+
+    float t = 0.0;
+    for (int i = 0; i < 64; i++) {
+        float d = sdSphere(ro + rd * t, 0.55);
+        if (d < 0.001) {
+            vec3 n = getNormal(ro + rd * t);
+            float NdotL = clamp(dot(n, lightDir), 0.0, 1.0);
+            col = vec3(NdotL);
+            break;
+        }
+        t += d;
+        if (t > 10.0) break;
+    }
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+In a physically-based renderer, this smooth gradient is the goal.
+But this is not what we want. To imitate Moebius's coloring we aim for flat areas of color with a 
+clean boundary between light and shadow, not a photographic fade.
+
+The simplest fix is a step function: below a threshold the surface is in shadow, above it is lit.
+
+$$
+\text{lightMask} = \text{step}(\text{threshold},\ \text{NdotL})
+$$
+
+This is the foundation of cel shading. The output is binary: 0 or 1, no in-between.
+
+<figure>
+    <Image src={captCelShading} alt="Test scene with celshading"/>
+    <figcaption>
+        The mask drives a lerp between a shadow tint and a light tint, both multiplied against a
+        shared base color. The captures from here on already show those tints applied.
+    </figcaption>
+</figure>
+
+
+Already looks nice, and with outlines on top it could pass for a comic-book renderer.
+But I wanted more control than that (the shader is called Color Gradient for a reason).
+I wanted the option to keep a soft gradient when the material called for it, to move the shadow line
+wherever it needed to sit, and to control exactly how sharp or soft the transition should be.
+
+Subtracting the threshold before clamping moves the boundary anywhere on the surface.
+Multiplying by a scale factor controls how fast the transition happens.
+A high scale compresses the ramp into a near-hard edge; a low scale spreads it into a soft gradient.
+
+$$
+\text{lightMask} = \text{saturate}\bigl((\text{NdotL} - \text{threshold}) \times \text{scale}\bigr)
+$$
+
+Both spheres below use the same threshold and colors but different scale values:
+the top one is soft, the bottom one approaches the hard cel-shading step.
+
+```glsl live tall
+precision mediump float;
+uniform vec2 u_resolution;
+
+float sdSphere(vec3 p, float r) { return length(p) - r; }
+
+float scene(vec3 p) {
+    return min(
+        sdSphere(p - vec3(0.0, 0.28, 0.0), 0.22),
+        sdSphere(p - vec3(0.0, -0.28, 0.0), 0.22)
+    );
+}
+
+vec3 getNormal(vec3 p) {
+    vec2 e = vec2(0.001, 0.0);
+    return normalize(vec3(
+        scene(p + e.xyy) - scene(p - e.xyy),
+        scene(p + e.yxy) - scene(p - e.yxy),
+        scene(p + e.yyx) - scene(p - e.yyx)
+    ));
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+    vec3 ro = vec3(0.0, 0.0, 2.0);
+    vec3 rd = normalize(vec3(uv, -1.5));
+
+    vec3 lightDir = normalize(vec3(1.0, 1.0, 0.5));
+    vec3 baseColor = vec3(0.76, 0.56, 0.30);
+    vec3 shadowTint = vec3(0.55, 0.45, 0.75);
+    vec3 lightTint = vec3(1.0,  0.92, 0.75);
+    float threshold = 0.15;
+
+    vec3 col = vec3(0.08);
+
+    float t = 0.0;
+    for (int i = 0; i < 64; i++) {
+        float d = scene(ro + rd * t);
+        if (d < 0.001) {
+            vec3 p = ro + rd * t;
+            vec3 n = getNormal(p);
+            float NdotL = dot(n, lightDir);
+            // Top: soft gradient (scale 2.5). Bottom: hard edge (scale 20.0).
+            float scale = p.y > 0.0 ? 2.5 : 20.0;
+            float lightMask = clamp((NdotL - threshold) * scale, 0.0, 1.0);
+            col = mix(baseColor * shadowTint, baseColor * lightTint, lightMask);
+            break;
+        }
+        t += d;
+        if (t > 10.0) break;
+    }
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+The last step multiplies the mask by the shadow attenuation from Unity's shadow maps.
+A small custom HLSL function reads it from the main directional light:
+
+```hlsl
+void MainLightShadowAttenuation_float(float3 worldPos, out float shadowAtten)
+{
+    float4 shadowCoord = TransformWorldToShadowCoord(worldPos);
+    Light mainLight = GetMainLight(shadowCoord);
+    shadowAtten = mainLight.shadowAttenuation;
+}
+```
+
+With this factor in, a surface in the cast shadow of another object has its mask pushed toward 0
+regardless of its NdotL.
+The function also includes a preview stub that returns 1.0,
+since `TransformWorldToShadowCoord` is unavailable outside a real render pass.
+
+<div class="image-md">
+    <Image
+        src={captShadowCasting}
+        alt="Test scene with shadow casting and color gradient"
+    />
+</div>
+
+Now each face responds to the light direction with its own tint, cast shadows land on the ground and
+on neighboring surfaces, and the outline pass runs on top of everything.
 
 The outline pass and the color gradient shader together establish the visual language of the scene.
 Hatching, bubble, and skydome are covered in part 2.
