@@ -37,7 +37,7 @@ const galleryImages = projectImageEntries.map(([, mod]) => mod.default);
 <BaseLayout title={project.data.title} description={project.data.description} ogImage={project.data.thumbnail?.src}>
     <main class="container">
         {
-            galleryImages && galleryImages.length > 0 && (
+            !project.data.hideCover && galleryImages && galleryImages.length > 0 && (
                 <section class="project-cover">
                     <Image
                         src={galleryImages[0]}
