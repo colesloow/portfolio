@@ -6,6 +6,7 @@ draft: false
 ---
 
 import { Image } from "astro:assets";
+import MathRow from "../../components/MathRow.astro";
 import captUnlitScene from "../../assets/images/blog/moebius-shaders/captures/capt-unlit-basescne.png";
 import captDepthBuffer from "../../assets/images/blog/moebius-shaders/captures/capt-depthbuffer.png";
 import captDepthbasedOutline from "../../assets/images/blog/moebius-shaders/captures/capt-depthbased-outline.png";
@@ -16,7 +17,9 @@ import captLimitationsExample from "../../assets/images/blog/moebius-shaders/cap
 import captCelShading from "../../assets/images/blog/moebius-shaders/captures/capt-celshading.png";
 import captShadowCasting from "../../assets/images/blog/moebius-shaders/captures/capt-shadowcasting.png";
 
-export const _refModules = import.meta.glob("../../assets/images/blog/moebius-shaders/references/*.{jpg,jpeg,png}", { eager: true });
+export const _refModules = import.meta.glob("../../assets/images/blog/moebius-shaders/references/*.{jpg,jpeg,png}", {
+    eager: true,
+});
 export const moebiusImages = [
     { file: "moebius-edena-2.jpg", caption: "Les voyages d'Edena" },
     { file: "moebius-edena-full_moon.jpg", caption: "Les voyages d'Edena" },
@@ -27,7 +30,9 @@ export const moebiusImages = [
     caption,
 }));
 
-export const _sableModules = import.meta.glob("../../assets/images/blog/moebius-shaders/sable/*.{jpg,jpeg,png}", { eager: true });
+export const _sableModules = import.meta.glob("../../assets/images/blog/moebius-shaders/sable/*.{jpg,jpeg,png}", {
+    eager: true,
+});
 export const sableImages = Object.values(_sableModules).map((m) => m.default);
 
 ## Inspirations and goals
@@ -56,7 +61,9 @@ I came back to his work again when Sable came out in 2021,
 a game by Shedworks that used his iconic graphic style as a direct visual reference.
 
 <div class="image-grid">
-    {sableImages.map((src) => <Image src={src} alt="Sable" />)}
+    {sableImages.map((src) => (
+        <Image src={src} alt="Sable" />
+    ))}
 </div>
 
 This project started from wanting to understand how that graphic logic actually works,
@@ -74,9 +81,10 @@ Each one computes its own shading from a single directional light,
 with lit and shadow colors exposed as inspector properties.
 
 The pipeline has two layers.
-The first is a set of object shaders (color gradient, hatching, bubble, skydome), all unlit.
-The second is a fullscreen post-process pass that runs after the scene is rendered
-and reads the depth, normal, and color buffers to draw outlines on top.
+The first is a set of object shaders (color gradient, bubble, skydome), all unlit.
+The second is a set of fullscreen post-process passes that run after the scene is rendered:
+hatching reads the depth and normal buffers to place hatch lines,
+and the outline pass reads the same buffers plus the color buffer to draw edges on top.
 
 {/* ILLUSTRATION: diagramme de flux - [Object shaders] -> [G-buffers: depth | normals | color] -> [Outline pass] -> [Final image] */}
 
@@ -102,11 +110,10 @@ Scharr is a variant of the [Sobel operator](https://en.wikipedia.org/wiki/Sobel_
 it uses coefficients 3 and 10 instead of Sobel's 1 and 2,
 which produces a more isotropic gradient, responding more uniformly to edges at all orientations.
 
-$$
-G_x = \begin{bmatrix} -3 & 0 & +3 \\ -10 & 0 & +10 \\ -3 & 0 & +3 \end{bmatrix} * I
-\qquad
-G_y = \begin{bmatrix} -3 & -10 & -3 \\ 0 & 0 & 0 \\ +3 & +10 & +3 \end{bmatrix} * I
-$$
+<MathRow
+    a="G_x = \begin{bmatrix} -3 & 0 & +3 \\ -10 & 0 & +10 \\ -3 & 0 & +3 \end{bmatrix} * I"
+    b="G_y = \begin{bmatrix} -3 & -10 & -3 \\ 0 & 0 & 0 \\ +3 & +10 & +3 \end{bmatrix} * I"
+/>
 
 $$
 |G| = \sqrt{G_x^2 + G_y^2}
@@ -439,7 +446,7 @@ of both. Maybe a project for later?
 ## Color gradient
 
 The color gradient shader is the base layer all scene objects build on.
-Each object computes its own shading from a single directional light, with no light probes or 
+Each object computes its own shading from a single directional light, with no light probes or
 global illumination.
 The shader maps that lighting to two colors: one for lit surfaces, one for shadow,
 with a controllable gradient between them.
@@ -493,7 +500,7 @@ void main() {
 ```
 
 In a physically-based renderer, this smooth gradient is the goal.
-But this is not what we want. To imitate Moebius's coloring we aim for flat areas of color with a 
+But this is not what we want. To imitate Moebius's coloring we aim for flat areas of color with a
 clean boundary between light and shadow, not a photographic fade.
 
 The simplest fix is a step function: below a threshold the surface is in shadow, above it is lit.
@@ -505,13 +512,12 @@ $$
 This is the foundation of cel shading. The output is binary: 0 or 1, no in-between.
 
 <figure>
-    <Image src={captCelShading} alt="Test scene with celshading"/>
+    <Image src={captCelShading} alt="Test scene with celshading" />
     <figcaption>
-        The mask drives a lerp between a shadow tint and a light tint, both multiplied against a
-        shared base color. The captures from here on already show those tints applied.
+        The mask drives a lerp between a shadow tint and a light tint, both multiplied against a shared base color. The
+        captures from here on already show those tints applied.
     </figcaption>
 </figure>
-
 
 Already looks nice, and with outlines on top it could pass for a comic-book renderer.
 But I wanted more control than that (the shader is called Color Gradient for a reason).
@@ -603,10 +609,7 @@ The function also includes a preview stub that returns 1.0,
 since `TransformWorldToShadowCoord` is unavailable outside a real render pass.
 
 <div class="image-md">
-    <Image
-        src={captShadowCasting}
-        alt="Test scene with shadow casting and color gradient"
-    />
+    <Image src={captShadowCasting} alt="Test scene with shadow casting and color gradient" />
 </div>
 
 Now each face responds to the light direction with its own tint, cast shadows land on the ground and

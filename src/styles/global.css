@@ -491,6 +491,33 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
     margin: 1rem 0 1rem 1.4rem;
 }
 
+/* Math (KaTeX) */
+
+.project-content .math,
+.article-content .math {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    padding: 0.5rem 0;
+}
+
+.project-content .math-display,
+.article-content .math-display {
+    display: block;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .project-content .katex,
+    .article-content .katex {
+        font-size: 0.9em;
+    }
+
+    .article-content .image-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Tables */
 
 .project-content table,

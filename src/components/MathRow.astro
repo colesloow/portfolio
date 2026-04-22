@@ -1,0 +1,36 @@
+---
+// Renders two LaTeX expressions side by side on desktop, stacked on mobile.
+// Uses katex server-side rendering so no client-side JS is needed.
+import katex from "katex";
+
+const { a, b } = Astro.props;
+const htmlA = katex.renderToString(a, { displayMode: true, throwOnError: false });
+const htmlB = katex.renderToString(b, { displayMode: true, throwOnError: false });
+---
+
+<div class="math-row">
+    <div set:html={htmlA} />
+    <div set:html={htmlB} />
+</div>
+
+<style>
+    .math-row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 2rem;
+        margin: 1.5rem 0;
+        flex-wrap: wrap;
+    }
+
+    @media (max-width: 600px) {
+        .math-row {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .math-row :global(.katex) {
+            font-size: 1.05em;
+        }
+    }
+</style>

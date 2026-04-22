@@ -13,6 +13,10 @@ export async function getStaticPaths() {
 
 const { article } = Astro.props;
 const { Content } = await article.render();
+
+const { date, updatedDate } = article.data;
+const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+const showUpdated = updatedDate && toYMD(updatedDate) !== toYMD(date);
 ---
 
 <BaseLayout title={article.data.title} description={article.data.summary}>
@@ -21,7 +25,8 @@ const { Content } = await article.render();
             <h1>{article.data.title}</h1>
 
             <p class="article-meta">
-                {article.data.date.toDateString()}
+                {date.toDateString()}
+                {showUpdated && <span class="article-updated"> · Updated {updatedDate!.toDateString()}</span>}
             </p>
         </header>
 
