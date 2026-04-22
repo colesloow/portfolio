@@ -27,7 +27,6 @@ const projects = defineCollection({
             })
             .optional(),
 
-        gallery: z.array(img()).optional(),
     }),
 });
 

@@ -10,13 +10,6 @@ tags:
     - Generative
     - Image Processing
 
-gallery:
-    - ../../assets/images/projects/fault-lines/cover.jpg
-    - ../../assets/images/projects/fault-lines/capt1.jpg
-    - ../../assets/images/projects/fault-lines/capt2.jpg
-    - ../../assets/images/projects/fault-lines/capt3.jpg
-    - ../../assets/images/projects/fault-lines/capt4.jpg
-    - ../../assets/images/projects/fault-lines/capt5.jpg
 ---
 
 The algorithm reads each pixel's luminance value and uses it to displace its neighbors, then repeats. What begins as a sharp landscape gradually fractures, the image following stress lines only the program can see.

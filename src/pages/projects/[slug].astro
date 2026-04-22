@@ -14,15 +14,33 @@ export async function getStaticPaths() {
 
 const { project } = Astro.props;
 const { Content } = await project.render();
+
+// Auto-discover all images for this project from its assets folder.
+// cover.png is placed first; remaining images are sorted alphabetically.
+const allProjectImages = import.meta.glob<{ default: ImageMetadata }>(
+    "../../assets/images/projects/**/*.{jpg,jpeg,png,webp}",
+    { eager: true }
+);
+const prefix = `../../assets/images/projects/${project.slug}/`;
+const projectImageEntries = Object.entries(allProjectImages)
+    .filter(([path]) => path.startsWith(prefix))
+    .sort(([a], [b]) => {
+        const isCoverA = a.endsWith("cover.png") || a.endsWith("cover.jpg");
+        const isCoverB = b.endsWith("cover.png") || b.endsWith("cover.jpg");
+        if (isCoverA) return -1;
+        if (isCoverB) return 1;
+        return a.localeCompare(b);
+    });
+const galleryImages = projectImageEntries.map(([, mod]) => mod.default);
 ---
 
 <BaseLayout title={project.data.title} description={project.data.description} ogImage={project.data.thumbnail?.src}>
     <main class="container">
         {
-            project.data.gallery && project.data.gallery.length > 0 && (
+            galleryImages && galleryImages.length > 0 && (
                 <section class="project-cover">
                     <Image
-                        src={project.data.gallery[0]}
+                        src={galleryImages[0]}
                         alt={`${project.data.title} - cover image`}
                         class="gallery-img"
                     />
@@ -43,9 +61,9 @@ const { Content } = await project.render();
         </article>
 
         {
-            project.data.gallery && project.data.gallery.length > 1 && (
+            galleryImages && galleryImages.length > 1 && (
                 <section class="project-gallery" aria-label="Project images">
-                    {project.data.gallery.slice(1).map((img, i) => (
+                    {galleryImages.slice(1).map((img, i) => (
                         <Image
                             src={img}
                             alt={`${project.data.title} - image ${i + 2}`}
