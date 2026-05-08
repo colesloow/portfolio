@@ -101,9 +101,9 @@ const ogImageURL = ogImage && Astro.site ? new URL(ogImage, Astro.site).href : n
 
         <Header />
 
-        <div id="main-content" tabindex="-1">
+        <main id="main-content" tabindex="-1">
             <slot />
-        </div>
+        </main>
 
         <Footer />
     </body>

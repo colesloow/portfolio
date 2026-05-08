@@ -130,6 +130,7 @@ function makeSlider(
     slider.max = String(max);
     slider.step = String(step);
     slider.value = String(value);
+    slider.tabIndex = -1;
 
     const val = document.createElement("span");
     val.className = "val";
@@ -163,6 +164,7 @@ export function createDrawer(
 
     const wrapper = document.createElement("div");
     wrapper.className = "canvas-drawer-wrapper";
+    wrapper.setAttribute("aria-hidden", "true");
 
     const drawer = document.createElement("div");
     drawer.className = "canvas-drawer";
@@ -187,6 +189,7 @@ export function createDrawer(
         const input = document.createElement("input");
         input.type = "color";
         input.value = color;
+        input.tabIndex = -1;
         input.addEventListener("input", () => {
             swatch.style.background = input.value;
             callbacks.onColorChange(i, input.value);

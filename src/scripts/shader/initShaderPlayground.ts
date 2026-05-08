@@ -32,6 +32,7 @@ export function initShaderPlayground({ canvasId, editorId, errorId, resetId, cod
                 basicSetup,
                 cpp(), // GLSL syntax is close enough to C++ for reasonable highlighting
                 EditorView.lineWrapping,
+                EditorView.contentAttributes.of({ "aria-label": "GLSL shader editor" }),
                 themeCompartment.of(getThemeExtensions()),
                 EditorView.updateListener.of((update) => {
                     if (update.docChanged) {
