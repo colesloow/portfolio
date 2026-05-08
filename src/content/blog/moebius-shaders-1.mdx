@@ -1,6 +1,7 @@
 ---
 title: "Moebius Shaders in Unity - Part 1"
 date: 2026-04-22
+updatedDate: 2026-05-08
 summary: Outlines and color gradient in a real-time NPR renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
 draft: false
 ---
@@ -16,6 +17,7 @@ import captColorbasedOutline from "../../assets/images/blog/moebius-shaders/capt
 import captLimitationsExample from "../../assets/images/blog/moebius-shaders/captures/capt-limitations-example.png";
 import captCelShading from "../../assets/images/blog/moebius-shaders/captures/capt-celshading.png";
 import captShadowCasting from "../../assets/images/blog/moebius-shaders/captures/capt-shadowcasting.png";
+import diagram from "../../assets/images/blog/moebius-shaders/diagram.png";
 
 export const _refModules = import.meta.glob("../../assets/images/blog/moebius-shaders/references/*.{jpg,jpeg,png}", {
     eager: true,
@@ -68,8 +70,7 @@ a game by Shedworks that used his iconic graphic style as a direct visual refere
 
 This project started from wanting to understand how that graphic logic actually works,
 and whether it could transfer to a real-time renderer in Unity URP.
-
-{/* IMAGE: capt1.png or capt4.png - final Unity scene screenshot */}
+The result is on the [project page](/projects/moebius-shaders).
 
 ## Pipeline
 
@@ -86,7 +87,10 @@ The second is a set of fullscreen post-process passes that run after the scene i
 hatching reads the depth and normal buffers to place hatch lines,
 and the outline pass reads the same buffers plus the color buffer to draw edges on top.
 
-{/* ILLUSTRATION: diagramme de flux - [Object shaders] -> [G-buffers: depth | normals | color] -> [Outline pass] -> [Final image] */}
+<figure>
+    <Image src={diagram} alt="Pipeline diagram: scene rendered into depth, normal, and color G-buffers, which feed into the outline and hatching post-process passes, producing the final image" />
+    <figcaption>Simplified pipeline: the scene is rendered into three G-buffers (depth, normals, color). The outline and hatching passes read these buffers to draw edges and hatch lines on top of the scene.</figcaption>
+</figure>
 
 ## Outline
 
