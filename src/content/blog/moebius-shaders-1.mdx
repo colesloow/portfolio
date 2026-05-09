@@ -18,6 +18,8 @@ import captLimitationsExample from "../../assets/images/blog/moebius-shaders/cap
 import captCelShading from "../../assets/images/blog/moebius-shaders/captures/capt-celshading.png";
 import captShadowCasting from "../../assets/images/blog/moebius-shaders/captures/capt-shadowcasting.png";
 import diagram from "../../assets/images/blog/moebius-shaders/diagram.png";
+import dotProduct from "../../assets/images/blog/moebius-shaders/dot_product.png";
+import offsetCorrection from "../../assets/images/blog/moebius-shaders/offset_correction.png";
 
 export const _refModules = import.meta.glob("../../assets/images/blog/moebius-shaders/references/*.{jpg,jpeg,png}", {
     eager: true,
@@ -319,7 +321,10 @@ At a crease or fold, the normals suddenly diverge, and the dot product drops sha
 Applying the Scharr filter to these dot product values detects exactly those orientation
 discontinuities.
 
-{/* ILLUSTRATION: schéma - deux surfaces qui se rejoignent en angle, vecteurs normaux dessinés sur chaque face, dot product ~1 sur la surface plane, dot product bas à la crête */}
+<figure>
+    <Image src={dotProduct} alt="Three diagrams showing two surface patches with their normal vectors: coplanar surfaces (n1·n2 = 1), a soft crease at ~45° (n1·n2 ≈ 0.5), and a right-angle crease (n1·n2 = 0)" />
+    <figcaption>The dot product between neighboring normals measures how much the surface bends. On a flat area the normals are parallel and the value stays near 1. At a crease they diverge and the value drops. A threshold on this value controls how sharp a fold must be before an outline is drawn.</figcaption>
+</figure>
 
 ```hlsl
 void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
@@ -422,7 +427,10 @@ the same offset covers twice as many physical pixels at 4K as at 1080p.
 Dividing by resolution ensures a thickness of 1.0 always means exactly one pixel on screen,
 whatever the rendering resolution.
 
-{/* ILLUSTRATION: schéma - même offset UV sur deux résolutions différentes : à 1080p il couvre 1px, à 4K il couvre 2px sans la correction; avec la correction, les deux donnent 1px */}
+<figure>
+    <Image src={offsetCorrection} alt="Two side-by-side diagrams comparing a raw UV offset vs a normalized offset at 1080p and 4K: the raw offset jumps two pixels at 4K, while the normalized offset always jumps exactly one pixel regardless of resolution" />
+    <figcaption>A raw UV offset covers more pixels at higher resolutions. Dividing by the screen resolution normalizes it so a thickness of 1.0 always maps to exactly one pixel, at any resolution.</figcaption>
+</figure>
 
 ### Limitations
 
