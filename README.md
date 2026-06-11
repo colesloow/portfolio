@@ -1,6 +1,6 @@
 # coleslow.dev
 
-Personal portfolio built with [Astro](https://astro.build). Covers projects in generative art, shaders, game development, and 3D.
+Personal portfolio built with [Astro](https://astro.build). Covers projects in generative art, shaders and game development.
 
 Live at [coleslow.dev](https://coleslow.dev).
 
