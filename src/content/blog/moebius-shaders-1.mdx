@@ -1,7 +1,7 @@
 ---
 title: "Moebius Shaders in Unity - Part 1"
 date: 2026-04-22
-updatedDate: 2026-05-08
+updatedDate: 2026-09-28
 summary: Outlines and color gradient in a real-time NPR renderer in Unity URP, inspired by the graphic novel style of Jean Giraud.
 draft: false
 ---
@@ -27,7 +27,7 @@ export const _refModules = import.meta.glob("../../assets/images/blog/moebius-sh
 export const moebiusImages = [
     { file: "moebius-edena-2.jpg", caption: "Les voyages d'Edena" },
     { file: "moebius-edena-full_moon.jpg", caption: "Les voyages d'Edena" },
-    { file: "moebius-arzak-echappee-belle.jpg", caption: "Affiche Arzak — L'échappée belle" },
+    { file: "moebius-arzak-echappee-belle.jpg", caption: "Affiche Arzak, L'échappée belle" },
     { file: "moebius-voyagehermes.jpg", caption: "Illustration pour le parfum Voyage d'Hermès" },
 ].map(({ file, caption }) => ({
     src: _refModules[`../../assets/images/blog/moebius-shaders/references/${file}`].default,
@@ -77,8 +77,8 @@ The result is on the [project page](/projects/moebius-shaders).
 ## Pipeline
 
 This project uses NPR (Non-Photorealistic Rendering).
-Instead of simulating physical light, the goal is graphic legibility, with
-flat colors, controlled shadows, and ink-like outlines.
+Instead of simulating physical light, the goal is graphic legibility: flat colors
+and ink-like outlines, with shadows drawn rather than computed.
 All object shaders are unlit: no light probes, no global illumination.
 Each one computes its own shading from a single directional light,
 with lit and shadow colors exposed as inspector properties.
@@ -103,7 +103,7 @@ No mesh modification needed: the detector works on pixels, not geometry.
 
 The starting point was a [tutorial by Digvijaysinh Gohil](https://www.youtube.com/watch?v=nc3a3THBFrg)
 covering two detection methods: depth-based and normal-based.
-Both produced clean results on solid geometry.
+The two HLSL snippets below are adapted from it.
 
 ### Depth-based detection
 
@@ -178,14 +178,13 @@ to the nearest surface.
 Closer objects appear brighter, farther ones darker.
 Flat areas of the same surface blend into a continuous gradient in perspective,
 while geometry edges produce sharp jumps in value.
-Those jumps are exactly what the Scharr filter will look for.
 
 <div class="image-grid">
     <Image src={captUnlitScene} alt="Test scene with placeholder unlit materials" />
     <Image src={captDepthBuffer} alt="Depth buffer of the test scene, grayscale" />
 </div>
 
-Now let's add some outlines. The following shader applies the Scharr filter to the depth buffer:
+Now I want outlines. The following shader applies the Scharr filter to those depth jumps:
 it samples the 8 neighboring pixels, computes the gradient magnitude from those depth values,
 and marks a pixel as an edge if that magnitude exceeds a threshold.
 
@@ -304,7 +303,7 @@ The result in the Unity scene: the depth-based pass already captures the main si
 
 <Image src={captDepthbasedOutline} alt="Test scene with depth-based outlines only" />
 
-As you can see, we have some problems. The sphere outline is broken and jagged. On a curved surface,
+I ran into two problems here. The sphere outline is broken and jagged. On a curved surface,
 depth changes gradually near the silhouette, and the Scharr gradient falls below the threshold
 at certain angles, producing gaps. Also, the floor is almost entirely black. When the camera looks
 nearly parallel to a flat surface,
@@ -366,7 +365,7 @@ shifts sharply.
 
 <Image src={captDepthnormalbasedOutline} alt="Test scene with depth and normal-based outlines combined" />
 
-The result is much better. The floor is clean, the sphere has a smooth continuous outline,
+That's much better! The floor is clean, the sphere has a smooth continuous outline,
 and the cube shows interior edges that depth alone would have missed.
 
 Both methods work on solid geometry. But what happens when a transparent object is in the scene?
@@ -376,7 +375,7 @@ Both methods work on solid geometry. But what happens when a transparent object 
     <figcaption>where did the outlines go?</figcaption>
 </figure>
 
-As you can see, transparent geometry doesn't write to the depth or normal buffers,
+I realized that transparent geometry doesn't write to the depth or normal buffers,
 so both filters see nothing where the object should be.
 This means that glass, bubbles, or any surface that lets light through will simply never get outlines.
 
@@ -417,7 +416,7 @@ void ColorBasedOutlinesFromSamples_float(
 
 <Image src={captColorbasedOutline} alt="Transparent bubble with outlines from color-based detection" />
 
-All three passes combined: the bubble now has a clean outline, and so does everything else.
+All three passes combined, the bubble finally gets its outline.
 
 ### Resolution awareness
 
@@ -627,7 +626,8 @@ since `TransformWorldToShadowCoord` is unavailable outside a real render pass.
 Now each face responds to the light direction with its own tint, cast shadows land on the ground and
 on neighboring surfaces, and the outline pass runs on top of everything.
 
-The outline pass and the color gradient shader together establish the visual language of the scene.
+Shadows are still just flat tints, though. What turns them into something that reads as drawn is the
+hatching pass.
 Hatching, bubble, and skydome are covered in part 2.
 
 ## Sources

@@ -13,13 +13,14 @@ Random tree placement, random enemy spawns, random sample positions for anti-ali
 Surely a random number generator is all you need?
 
 Not quite. Pure random distributions have a well-known flaw: they cluster.
-Scatter 200 points randomly across a canvas and you'll see dense piles here, conspicuous empty voids there.
-It doesn't look natural, right?
+Scatter 200 points randomly across a canvas and some will land almost on top of each other while
+whole regions stay empty. What I want is an even spread.
 
 ```glsl live
 precision mediump float;
 uniform vec2 u_resolution;
 
+// Canonical hash from Inigo Quilez, widely used on Shadertoy
 vec2 hash2(vec2 p) {
     p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
     return fract(sin(p) * 43758.5453);
@@ -79,7 +80,7 @@ its energy is spread evenly across all frequencies,
 including the very low ones that create large-scale variation (the clusters and voids).
 What we want is **blue noise**: energy concentrated in high frequencies,
 meaning fine-scale variation without large-scale structure.
-Poisson disc sampling is one of the most practical ways to get it.
+Poisson disc sampling is a practical way to get it.
 
 ## One rule to fix everything
 
@@ -248,6 +249,7 @@ precision mediump float;
 uniform vec2 u_resolution;
 uniform float u_time;
 
+// Canonical hash from Inigo Quilez, widely used on Shadertoy
 vec2 hash2(vec2 p) {
     p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
     return fract(sin(p) * 43758.5453);
@@ -325,7 +327,6 @@ to avoid degenerate cells that are too thin or too small to render properly.
 **Game development:** foliage scattering, loot drops, ambient sound source placement,
 procedural dungeon decoration.
 Uniform distribution means no awkward empty patches and no impossible-to-navigate piles.
-Unity's terrain scatter system and Unreal's foliage painter both use variants of Poisson disc sampling internally.
 Sebastian Lague has a [great walkthrough](https://www.youtube.com/watch?v=7WcmyxyFO7o)
 of implementing it for procedural object placement in Unity.
 
@@ -420,9 +421,9 @@ regions of different colors expand side by side but never merge or cross,
 filling the canvas right up to each other's boundary.
 
 I hope this gave you a clear picture of how the algorithm works and where it could be useful.
-Whether you're placing objects in a game world, distributing samples for a renderer,
-or just curious about what's running on the home page,
-Poisson disc sampling is a genuinely useful tool to have in mind.
+Bridson's paper actually describes it for any number of dimensions, not just 2D.
+I only needed it flat, but the same grid trick works in 3D if you ever need to scatter things in a
+volume.
 
 ## Sources
 
@@ -431,3 +432,4 @@ Poisson disc sampling is a genuinely useful tool to have in mind.
 - Wikipedia. _Supersampling._ <a href="https://en.wikipedia.org/wiki/Supersampling" target="_blank" rel="noopener noreferrer" aria-label="Wikipedia: Supersampling (opens in new tab)">en.wikipedia.org</a>
 - Sebastian Lague. _Procedural Object Placement (E01: Poisson disk sampling)._ <a href="https://www.youtube.com/watch?v=7WcmyxyFO7o" target="_blank" rel="noopener noreferrer" aria-label="Sebastian Lague: Procedural Object Placement on YouTube (opens in new tab)">youtube.com</a>
 - Daniel Shiffman. _Coding Challenge #33: Poisson-disc Sampling._ The Coding Train. <a href="https://thecodingtrain.com/challenges/33-poisson-disc-sampling" target="_blank" rel="noopener noreferrer" aria-label="Daniel Shiffman: Poisson-disc Sampling on The Coding Train (opens in new tab)">thecodingtrain.com</a>
+- Inigo Quilez. _Integer Hash._ The hash function used in the GLSL demos above. <a href="https://iquilezles.org/articles/" target="_blank" rel="noopener noreferrer" aria-label="Inigo Quilez: articles on hashing and noise (opens in new tab)">iquilezles.org</a>
