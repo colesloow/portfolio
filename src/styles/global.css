@@ -134,7 +134,9 @@ a {
     text-decoration: none;
 }
 
-a:hover {
+/* Scoped to text links: the gradient relies on background-clip: text, which
+   makes any non-textual link (cards, popups) lose both its text and its fill */
+a:not(.algo-popup):hover {
     background: linear-gradient(90deg, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a, #ffb347, #6bcb77, #4d96ff, #c77dff, #ff6b8a);
     background-size: 200% 100%;
     -webkit-background-clip: text;
@@ -536,6 +538,86 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: 10px;
     text-align: left;
+}
+
+/* =========================================================
+HOME CANVAS POPUP
+========================================================= */
+
+.algo-popup {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2;
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    max-width: 340px;
+    padding: 14px 40px 14px 16px;
+
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+
+    transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.algo-popup:hover {
+    opacity: 0.7;
+}
+
+.algo-popup-icon {
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+
+    background: var(--accent);
+    color: var(--bg);
+    border-radius: 50%;
+
+    font-weight: 700;
+}
+
+.algo-popup-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.35;
+}
+
+.algo-popup-text strong {
+    color: var(--accent);
+}
+
+.algo-popup-text span {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.algo-popup-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+
+    padding: 4px;
+
+    background: none;
+    border: none;
+    color: var(--text-muted);
+
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.algo-popup-dismiss:hover {
+    color: var(--text);
 }
 
 /* =========================================================
