@@ -1,0 +1,68 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Colophon">
+    <main class="container">
+        <div class="colophon">
+            <h1>Colophon</h1>
+
+            <div class="colophon-body">
+                <p>
+                    I wanted this site to stay as light as possible, which is not obvious when half the pages have to
+                    run shaders in real time. So I kept it static and native wherever I could: Astro generates the
+                    pages, the articles are written in MDX, and there is no UI framework, no webfonts, no analytics. The
+                    live shaders run on raw WebGL rather than a rendering library, and the only real dependencies are
+                    CodeMirror for the editable code blocks and KaTeX for the equations. The shader previews, the
+                    steppers and the home page canvas are components I wrote for this site.
+                </p>
+
+                <p>
+                    The format itself, a short explanation followed by a running example you can edit, comes from
+                    <a href="https://thebookofshaders.com/" target="_blank" rel="noopener">The Book of Shaders</a> by
+                    Patricio Gonzalez Vivo and Jen Lowe. I learned a lot from it, and being able to change a value and
+                    see the result immediately is still the thing that taught me the most.
+                </p>
+
+                <p>
+                    When a snippet comes from someone else, whether it's a tutorial, a Shadertoy shader or another
+                    developer's implementation, it's credited on the spot.
+                </p>
+
+                <p>
+                    About AI: English isn't my first language, so I use it as a proofreader and to help me phrase
+                    things. It also assists me when I write code, to a degree I honestly can't always measure after the
+                    fact.
+                </p>
+
+                <p>
+                    The source of this site is <a href="https://github.com/colesloow/portfolio" target="_blank" rel="noopener">on GitHub</a>.
+                </p>
+            </div>
+        </div>
+    </main>
+</BaseLayout>
+
+<style>
+    .colophon {
+        max-width: 680px;
+        margin: 0 auto;
+        padding-bottom: 80px;
+    }
+
+    .colophon-body {
+        font-size: 1.05rem;
+        line-height: 1.75;
+    }
+
+    .colophon-body p {
+        margin: 1.2rem 0;
+        color: var(--text);
+    }
+
+    .colophon-body a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+</style>

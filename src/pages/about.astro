@@ -11,9 +11,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                 <p>Hi, I'm Colin Veron, a technical artist and computer science engineering student based in France.</p>
 
                 <p>
-                    My focus is shaders: real-time rendering, procedural visuals, the kind of work that lives at the
-                    boundary between code and image. I'm still actively learning, and I want to keep going deeper into
-                    every part of the technical artist role, tools, pipelines, rigging, whatever's next.
+                    I mostly work on shaders, real-time rendering and procedural visuals. I'm still actively learning,
+                    and I want to keep going deeper into every part of the technical artist role, tools, pipelines,
+                    rigging, whatever's next.
                 </p>
 
                 <p>
@@ -27,6 +27,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
                     Outside of that I like piano (though I haven't touched it in months), learning languages, cooking
                     food (veggie here), and cats. I have one, very cute and very black. He might be hiding somewhere on
                     this site.
+                </p>
+
+                <p>
+                    If you're curious about how this site is built, there's a note in the
+                    <a href="/colophon">colophon</a>.
                 </p>
             </div>
 
@@ -79,6 +84,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .about-body p {
         margin: 1.2rem 0;
         color: var(--text);
+    }
+
+    .about-body a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-underline-offset: 2px;
     }
 
     .social-links {
