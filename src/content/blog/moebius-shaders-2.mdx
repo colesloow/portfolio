@@ -1,61 +1,136 @@
 ---
-title: "Moebius Shaders in Unity, Part 2"
-date: 2025-01-02
-summary: Hatching, bubble shader, and skydome, completing the NPR pipeline from part 1.
+title: "Moebius Shaders in Unity - Part 2"
+date: 2026-10-18
+summary: Hatching, bubble shader and skydome, completing the NPR pipeline from part 1.
 draft: true
 ---
 
+{/* DRAFT NOTES: first full draft. Lines marked CHECK are my reading of the Unity project, to confirm in the graphs. Lines marked IMAGE are placeholders for captures or diagrams. */}
+
+[Part 1](/blog/moebius-shaders-1) covered the outlines and the color gradient.
+This part covers what is left: the hatching that turns flat shadows into drawn ones, a bubble shader for transparent objects, and the sky.
+Same project, same unlit approach.
+
 ## Hatching
 
-The hatching shader is closely based on the technique shown in
+Moebius rarely leaves a shadow as a flat patch of color: he fills it with fine lines, and crosses them more and more as the shadow gets deeper.
+In a real-time renderer this is the step that does the most to make the image look drawn.
+
+The shader is closely based on the technique shown in
 [this video by Useless Game Dev](https://www.youtube.com/watch?v=jlKNOirh66E)
 (which by the way was also the initial spark for the project as a whole).
-The only addition in my version is a secondary outline drawn around cast shadows.
+I reused his shader as a starting point, then spent most of my time tuning it:
+the texture, the thresholds and the order of the layers.
+My only real addition is a line drawn around cast shadows, which I come back to further down.
 
 ### Hatch texture
 
-All hatching patterns are packed into a single texture.
-Each RGB channel holds a different layer: one angle for the lightest shadow zone,
-a denser or perpendicular pattern for the next zone, and so on.
-Sampling three independent channels from one texture costs the same as sampling one.
+All the hatch lines live in a single texture, drawn by hand.
+A procedural pattern would have been too regular for what I was after:
+a slight wobble in the strokes is what makes it look like ink on paper.
 
-{/* IMAGE: hatch texture visualized per channel - R, G, B shown separately, then combined */}
+Each RGB channel stores one direction of lines (horizontal, vertical or diagonal) on a white background.
+That way the shader reads the three layers with a single texture sample, since a sample returns all channels anyway.
+Blending pre-drawn hatch layers according to the tone of a surface is an old idea in non-photorealistic rendering:
+[Praun et al.](https://hhoppe.com/proj/hatching/) call these layers tonal art maps.
+
+{/* IMAGE: hatch texture visualized per channel, R, G and B shown separately, then combined (the combined version is T_HatchesTileable.png in the Unity project) */}
+
+The texture is read with the screen position as UV, multiplied by a `HatchScale` property to control how dense the lines are.
+So the lines are attached to the screen, not to the objects.
+That has a cost, which I describe in the limitation section below.
 
 ### Brightness zones
 
-The shader reads pixel brightness and posterizes it into discrete zones.
-Each zone maps to a combination of texture channels.
+The shader looks at the brightness of each pixel of the scene already rendered (its luma, a single value computed from the RGB color).
+Three thresholds cut the brightness range into zones, and each threshold switches on one more layer of lines.
+A lit pixel keeps its base color.
+As the pixel gets darker it crosses the thresholds one after the other: first one direction of lines, then a second one, then a third, which gives a full cross-hatch in the deepest shadows.
+For each layer, the line mask from the texture is kept only where the pixel is dark enough,
+and the three masks are merged with a `max`.
+The result decides how much the scene color is replaced by the hatch color (black by default).
 
-{/* ILLUSTRATION: brightness gradient -> posterized zones -> corresponding hatch layers (similar to the video diagram) */}
+{/* ILLUSTRATION: brightness gradient, then the zones cut by the three thresholds, then the matching hatch layers (similar to the diagram in the video) */}
 
-Lit pixels show the base color.
-As brightness drops, the shader blends in one channel, then two,
-adding lines and cross-hatching progressively.
+I found the three thresholds and the order of the layers by trial and error.
+Which direction should come first? How far apart should the thresholds be?
+I tried several combinations, and none of them looked perfect.
+I kept the one that bothered me the least.
 
-{/* IMAGE: shader graph screenshot */}
+{/* IMAGE: shader graph screenshot of SG_Hatching */}
 
-{/* IMAGE: hatching result on a simple object - lit/shadow/cross-hatch zones clearly visible */}
+{/* IMAGE: hatching result on a simple object, with the lit zone, the shadow zone and the cross-hatch zone clearly visible */}
 
 {/* IMAGE: full scene with hatching applied */}
 
+### Where it runs in the frame
+
+Hatching has to run after the outlines, not before.
+Otherwise the outline pass would read the hatch lines like any other contrast in the color buffer and draw an edge around every stroke.
+So the render order is: outlines first (before the post-processing), then hatching (after it), on the image that already contains the outlines.
+Both are Full Screen Pass renderer features, set to the injection points "Before Rendering Post Processing" and "After Rendering Post Processing"
+(see the Unity documentation of the
+[Full Screen Pass Renderer Feature](https://docs.unity.com/en-us/engine/6000.3/manual/post-processing-and-full-screen-effects/urp/custom-post-processing/renderer-feature-full-screen-pass)).
+
+### Outlines on shadows
+
+The line around cast shadows is the one thing I added to the original technique.
+I'm fairly sure that Moebius draws strokes along the edge of shadows, and hatching alone left them too soft for my taste.
+It matters even more when the color difference between shadow and light is strong, as it is in my scene.
+
+My first attempt was inside the hatching shader.
+It looked at the brightness zone of neighboring pixels and drew a line wherever the zone changed.
+The result was disappointing: it mostly thickened the existing outlines instead of adding new lines (the dead nodes are still in the graph, with a note on them).
+I didn't keep that version, so I can't show it, but my guess is that the hatching reads a color that already contains the outlines, so the black outlines count as brightness changes themselves.
+
+So I moved it to the outline pass.
+That pass runs before the hatching, so it sees the scene without any hatch line.
+The function reads the luma of the four neighbors, the same left, right, up and down samples as the color-based detection from part 1.
+It fires when the darkest neighbor is in shadow and the brightest one is in light.
+Two pairs of thresholds (around 0.2 and 0.4) handle the dark and the light shadow zones separately.
+
+```hlsl
+void ShadowStepOutlines_float(
+    float4 cL, float4 cR, float4 cU, float4 cD,
+    float shadowLumaMax1, float lightLumaMin1,
+    float shadowLumaMax2, float lightLumaMin2,
+    out float outlines)
+{
+    float lL = SG_Luma(cL.rgb);
+    float lR = SG_Luma(cR.rgb);
+    float lU = SG_Luma(cU.rgb);
+    float lD = SG_Luma(cD.rgb);
+
+    float lMin = min(min(lL, lR), min(lU, lD));
+    float lMax = max(max(lL, lR), max(lU, lD));
+
+    float step1 = step(lMin, shadowLumaMax1) * step(lightLumaMin1, lMax);
+    float step2 = step(lMin, shadowLumaMax2) * step(lightLumaMin2, lMax);
+
+    outlines = saturate(step1 + step2);
+}
+```
+
+The weak point is that these thresholds are absolute brightness values, so they depend on the lighting of the scene.
+Move to a scene with different colors and they have to be tuned again.
+
+{/* IMAGE: cast shadow with and without the shadow outline, same scene */}
+
 ### Limitation
 
-The texture is sampled in screen space.
-Useless Game Dev notes it himself: in an ideal world, the crosshatch pattern would follow the curve of the object it's on.
-Here it doesn't: move the camera, and the lines slide across the surface rather than staying anchored to it.
-On a still frame this is invisible, but it becomes noticeable on a moving camera.
+Because the texture is sampled in screen space, the lines don't follow the objects.
+Useless Game Dev says it himself in the video: ideally, the cross-hatch would follow the curve of the surface it's on.
+Here move the camera and the lines slide across the surface instead of staying attached to it.
+On a still frame you can't see it, but on a moving camera it shows.
 
-One approach is to embed the hatching lines into the normal buffer so they read as surface detail.
-The problem is that the Scharr filter can't distinguish a geometric crease from a hatch line:
-both produce edges, and the mesh ends up covered in unintended outlines.
-Resolving this would require a separate buffer or a masking pass (maybe a project for later?).
+A fix would be to make the lines part of the object, for example by writing them into the normal buffer so they read as surface detail.
+The problem is that the normal-based outlines from part 1 then see every stroke as a crease, and the mesh ends up covered in unwanted outlines.
+Keeping the two apart would take a separate buffer or a masking pass (maybe a project for later?).
 
-The playground below illustrates the difference.
+The playground below shows the difference.
 Both halves use the same orbiting camera driven by `u_time`.
-The top sphere computes the hatch pattern from screen coordinates:
-the lines slide across the surface as the camera moves.
-The bottom sphere uses the world-space position of the hit point:
-the lines stay anchored to the sphere regardless of camera angle.
+The top sphere computes the hatch pattern from screen coordinates: the lines slide across the surface as the camera moves.
+The bottom sphere uses the longitude and latitude of the hit point: the lines stay attached to the sphere whatever the camera angle.
 
 ```glsl live tall
 precision mediump float;
@@ -143,8 +218,221 @@ void main() {
 }
 ```
 
-{/* TODO: bubble shader */}
+## Bubble shader
 
-{/* TODO: skydome */}
+A bubble wasn't a requirement of the project, I could have built the scene without any transparent object.
+But Moebius's worlds are full of them: glass spheres, domes, with a very hard highlight on them.
+Since the goal was to get as close as possible to my references, I wanted one.
+(The same shader, with other colors, also draws the water.)
 
-{/* TODO: conclusion */}
+It's also the reason the color-based outlines from part 1 exist: a transparent surface writes neither depth nor normals, so only the color can give it an outline.
+
+The shader is unlit, with a transparent surface, and the look comes from three terms added on top of a base color: the opacity, a Fresnel rim and a hard specular highlight.
+
+### Fresnel rim
+
+The Fresnel effect describes how a transparent surface reflects more light at grazing angles.
+In practice, the edge of a glass sphere looks more solid than its center, which is what makes it read as a sphere.
+I get it from the angle between the surface normal $N$ (the direction the surface faces) and the view direction $V$ (from the surface toward the camera).
+Their dot product is 1 when the surface faces the camera and 0 at the silhouette.
+So $1 - N \cdot V$ is 0 at the center and 1 at the edge, and I raise it to a power $p$ to push the effect toward the edge (4 by default):
+
+$$
+F = \bigl(1 - \text{saturate}(N \cdot V)\bigr)^{p}
+$$
+
+The result tints the base color with the Fresnel color. By default it is a warm tone over a cold base.
+
+This is a cheap stand-in for the real physical formula, the same kind of shortcut as [Schlick's approximation](https://en.wikipedia.org/wiki/Schlick%27s_approximation).
+
+### Specular highlight
+
+The highlight is what sells the bubble.
+A realistic specular term fades smoothly from the brightest point.
+The highlight I wanted is a clean white spot, as in the drawings.
+So I compute the same smooth term and cut it with a step: either white or nothing.
+The smooth term is the dot product between the normal $N$ and the half vector $H$, the direction halfway between the light $L$ and the view $V$.
+It is close to 1 only near the spot where the light reflects toward the camera, and a threshold $t$ keeps that spot alone:
+
+$$
+H = \text{normalize}(L + V), \qquad S = \text{step}\bigl(t,\ \text{saturate}(N \cdot H)\bigr)
+$$
+
+The closer $t$ is to 1 (0.99 by default, the `SpecPower` property), the smaller the spot.
+The light direction comes from the main light of the scene, so the highlight moves with it.
+
+{/* CHECK: the Step with SpecPower as its Edge is confirmed in SG_Bubble. The half vector is my reading of the Add, Normalize and Negate nodes, which were not all visible in the screenshot. */}
+
+The demo below isolates the three terms on three spheres, from left to right: the base color alone, then with the Fresnel rim, then with the highlight.
+It's a simplified version of the Unity shader, with a fixed light and a camera looking straight at the spheres.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+
+    // Three spheres side by side: base only, base + Fresnel, base + Fresnel + highlight
+    float spacing = 0.33;
+    float radius = 0.15;
+    float index = clamp(floor(uv.x / spacing + 1.5), 0.0, 2.0);
+    vec2 q = (uv - vec2((index - 1.0) * spacing, 0.0)) / radius;
+
+    vec3 background = vec3(0.12, 0.14, 0.2);
+    vec3 col = background;
+
+    if (dot(q, q) < 1.0) {
+        // A sphere seen head-on: the normal can be rebuilt from the 2D position
+        vec3 n = vec3(q, sqrt(1.0 - dot(q, q)));
+        vec3 viewDir = vec3(0.0, 0.0, 1.0);
+        vec3 lightDir = normalize(vec3(-0.5, 0.6, 0.7));
+
+        vec3 baseColor = vec3(0.46, 1.0, 0.99);
+        vec3 fresnelColor = vec3(1.0, 0.81, 0.58);
+        float opacity = 0.5;
+
+        // Fresnel: 0 facing the camera, 1 on the silhouette
+        float fresnel = pow(1.0 - clamp(dot(n, viewDir), 0.0, 1.0), 4.0);
+
+        // Hard highlight: half vector between light and view, cut with a step
+        vec3 halfDir = normalize(lightDir + viewDir);
+        float highlight = step(0.99, dot(n, halfDir));
+
+        vec3 bubble = baseColor;
+        if (index > 0.5) bubble = mix(bubble, fresnelColor, fresnel);
+
+        col = mix(background, bubble, opacity);
+        if (index > 1.5) col = mix(col, vec3(1.0), highlight);
+    }
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+{/* IMAGE: bubble in the Unity scene, close up, with the outline from the color-based detection */}
+
+## Skydome
+
+The sky is a dome around the scene with an unlit shader.
+I don't remember exactly why I went for a dome mesh instead of a skybox material.
+The likely reason is that, as far as I know, URP's Shader Graph isn't meant to produce skybox shaders (Unity says its Unlit target was never designed for it), and my shaders are mostly made in Shader Graph.
+This is also the shader I'm the least proud of: it grew by trial and error, and the graph shows it.
+It still does three jobs: a gradient, clouds, and hiding a seam.
+
+### Gradient
+
+The base is a vertical gradient between two colors, `TopColor` and `BottomColor`, driven by the height of each point of the dome.
+An offset and a scale let me move the horizon wherever the scene needs it.
+
+{/* IMAGE: the sky gradient alone, with the offset and scale changed */}
+
+### Clouds
+
+The clouds are noise cut with a threshold.
+A gradient noise (a smooth, random-looking pattern, similar to Perlin noise) gives soft blobs when sampled across the sky.
+I slowly rotate the direction around the vertical axis over time (the speed is a `CloudsSpeed` property) so the clouds drift around the sky, then apply a step at `CloudThreshold`: everything above it becomes a flat cloud color, everything below it disappears.
+That turns the blobs into shapes with clean edges, like clouds painted in a flat color.
+A second, finer noise adds some irregularity to the outline (`DetailAmount` and `DetailFreq`), otherwise the shapes look too much like round blobs.
+
+The demo below shows the idea in 2D.
+The left half is the raw noise, the right half is the same noise after the threshold, on top of a gradient.
+
+```glsl live
+precision mediump float;
+uniform vec2 u_resolution;
+uniform float u_time;
+
+vec2 hash(vec2 p) {
+    p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return -1.0 + 2.0 * fract(sin(p) * 43758.5453123);
+}
+
+// Gradient noise, remapped to roughly 0..1
+float gradientNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = dot(hash(i + vec2(0.0, 0.0)), f - vec2(0.0, 0.0));
+    float b = dot(hash(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0));
+    float c = dot(hash(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0));
+    float d = dot(hash(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y) * 0.5 + 0.5;
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / u_resolution.y;
+    float height = gl_FragCoord.y / u_resolution.y;
+
+    // Clouds drift horizontally, a finer noise roughens their outline
+    vec2 drift = vec2(u_time * 0.1, 0.0);
+    float shape = gradientNoise(uv * 3.0 + drift);
+    float detail = gradientNoise(uv * 12.0 + drift);
+    float clouds = shape + (detail - 0.5) * 0.3;
+
+    vec3 col;
+    if (gl_FragCoord.x < 0.5 * u_resolution.x) {
+        // Left half: the raw noise
+        col = vec3(clouds);
+    } else {
+        // Right half: the same noise cut by a threshold, on top of a gradient sky
+        vec3 skyBottom = vec3(1.0, 0.47, 0.99);
+        vec3 skyTop = vec3(0.64, 0.99, 1.0);
+        col = mix(skyBottom, skyTop, height);
+        col = mix(col, vec3(1.0), step(0.58, clouds));
+    }
+
+    gl_FragColor = vec4(col, 1.0);
+}
+```
+
+{/* IMAGE: the clouds in the Unity scene, with the threshold set low and high */}
+
+### The seam
+
+Putting a flat noise on a dome means converting each direction of the sky into 2D coordinates.
+I use the longitude (with `atan2`) and the latitude (with `asin`), as on a map of the globe.
+The longitude jumps from one end of its range to the other behind the viewer, and the noise doesn't match across that line: you get a visible vertical seam in the clouds.
+
+My fix is a crude one.
+I sample the noise a second time with the longitude shifted by half a turn, so that its own seam sits on the opposite side of the sky.
+Right at the seam I use that second sample, and everywhere else the first one.
+With $u$ the longitude remapped between 0 and 1, the weight of the first sample is
+
+$$
+w = \text{smoothstep}\bigl(0,\ \text{SeamWidth},\ \min(u,\ 1 - u)\bigr)
+$$
+
+$\min(u, 1 - u)$ is the distance to the seam, so $w$ is 0 on the seam and reaches 1 once you are `SeamWidth` away from it.
+The final noise is a mix of the two samples with this weight.
+It works, but it doubles the number of nodes: the noise appears four times in the graph (two layers, twice each), which is why the graph is a mess.
+
+I'm not sure it's the best solution.
+A noise that takes the 3D direction of the sky directly would have no seam to begin with, but Shader Graph only ships with 2D gradient noise, so it would mean writing it myself.
+Another thing for later.
+
+{/* IMAGE: the seam before and after the correction */}
+
+## Conclusion
+
+That completes the pipeline: unlit objects, outlines, hatching on top, and a few shaders for the things that don't fit the rest.
+I'm fairly happy with these experiments, but I'm sure there are better and much more efficient ways to get the same look.
+The project is not optimized, and some choices are rough, like the sky.
+
+Two problems remain visible.
+The outlines still alias, especially at a distance.
+And the shadow outlines rely on absolute brightness thresholds, so they need tuning for each scene.
+One idea would be to draw the shadows into their own buffer, so the outline pass reads a mask instead of guessing it from the brightness.
+For the thin geometry problem from part 1, the inverted hull technique is still on my list.
+
+Beyond this project, I want to keep working on 2D-looking renders of real-time 3D.
+This is only the beginning.
+You can see the result on the [project page](/projects/moebius-shaders).
+
+## Sources
+
+- Useless Game Dev. _Moebius-style 3D Rendering._ <a href="https://www.youtube.com/watch?v=jlKNOirh66E" target="_blank" rel="noopener noreferrer" aria-label="Useless Game Dev: Moebius-style 3D Rendering (opens in new tab)">youtube.com</a>
+- Praun, E., Hoppe, H., Webb, M., Finkelstein, A. (2001). _Real-Time Hatching._ SIGGRAPH 2001. <a href="https://hhoppe.com/proj/hatching/" target="_blank" rel="noopener noreferrer" aria-label="Praun et al.: Real-Time Hatching (opens in new tab)">hhoppe.com</a>
+- Unity. _Full Screen Pass Renderer Feature._ <a href="https://docs.unity.com/en-us/engine/6000.3/manual/post-processing-and-full-screen-effects/urp/custom-post-processing/renderer-feature-full-screen-pass" target="_blank" rel="noopener noreferrer" aria-label="Unity: Full Screen Pass Renderer Feature (opens in new tab)">docs.unity.com</a>
+- Wikipedia. _Schlick's approximation._ <a href="https://en.wikipedia.org/wiki/Schlick%27s_approximation" target="_blank" rel="noopener noreferrer" aria-label="Wikipedia: Schlick's approximation (opens in new tab)">en.wikipedia.org</a>
+- Wikipedia. _Gradient noise._ <a href="https://en.wikipedia.org/wiki/Gradient_noise" target="_blank" rel="noopener noreferrer" aria-label="Wikipedia: Gradient noise (opens in new tab)">en.wikipedia.org</a>
