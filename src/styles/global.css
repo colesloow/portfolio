@@ -369,9 +369,62 @@ ARTICLE / PROJECT CONTENT TYPOGRAPHY
     transition: opacity 0.2s ease;
 }
 
-.article-content .image-grid figure:hover figcaption,
-.article-content .image-grid figure.caption-visible figcaption {
+.article-content .image-grid figure:hover figcaption {
     opacity: 1;
+}
+
+/* No hover on touch screens, so captions stay visible there */
+@media (hover: none) {
+    .article-content .image-grid figcaption {
+        opacity: 1;
+    }
+}
+
+/* Click-to-open images: a small expand icon appears on hover, always faintly visible on touch screens */
+.article-content a.zoomable {
+    display: block;
+    position: relative;
+    margin: 2rem 0;
+    text-decoration: none;
+}
+
+.article-content a.zoomable img {
+    margin: 0;
+    display: block;
+}
+
+.article-content .zoomable,
+.article-content .zoomable * {
+    cursor: pointer;
+}
+
+.article-content .zoomable::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.6);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E");
+    background-size: 16px;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.article-content .zoomable:hover::after,
+.article-content .zoomable:focus-visible::after {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .article-content .zoomable::after {
+        opacity: 0.7;
+    }
 }
 
 /* Channel breakdown: several images, an equals sign, then the combined result */

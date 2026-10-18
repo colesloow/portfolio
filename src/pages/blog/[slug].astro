@@ -45,9 +45,39 @@ const showUpdated = updatedDate && toYMD(updatedDate) !== toYMD(date);
         }
     });
 
-    // Image grid captions: tap to toggle on mobile
+    // Grid images sit directly in the grid in some articles: wrap them in a figure so they share the same styling and click behavior
+    document.querySelectorAll<HTMLImageElement>(".image-grid > img").forEach((img) => {
+        const fig = document.createElement("figure");
+        img.replaceWith(fig);
+        fig.appendChild(img);
+    });
+
+    // Grid figures open the full image in a new tab (captions are hover-only, always visible on touch screens)
     document.querySelectorAll<HTMLElement>(".image-grid figure").forEach((fig) => {
-        fig.addEventListener("click", () => fig.classList.toggle("caption-visible"));
+        const img = fig.querySelector("img");
+        if (!img) return;
+        fig.classList.add("zoomable");
+        fig.setAttribute("role", "link");
+        fig.setAttribute("tabindex", "0");
+        fig.setAttribute("aria-label", `Open image in a new tab: ${img.alt}`);
+        const open = () => window.open(img.currentSrc || img.src, "_blank", "noopener");
+        fig.addEventListener("click", open);
+        fig.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") open();
+        });
+    });
+
+    // Standalone article images link to the full image in a new tab
+    document.querySelectorAll<HTMLImageElement>(".article-content img").forEach((img) => {
+        if (img.closest(".image-grid, a")) return;
+        const link = document.createElement("a");
+        link.href = img.currentSrc || img.src;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.className = "zoomable";
+        link.setAttribute("aria-label", `Open image in a new tab: ${img.alt}`);
+        img.replaceWith(link);
+        link.appendChild(img);
     });
 
     // Collapsible code blocks
