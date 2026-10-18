@@ -2,8 +2,14 @@
 title: "Moebius Shaders in Unity - Part 2"
 date: 2026-10-18
 summary: Hatching, bubble shader and skydome, completing the NPR pipeline from part 1.
-draft: true
 ---
+
+import { Image } from "astro:assets";
+import hatchesDiagonal from "../../assets/images/blog/moebius-shaders/hatches_diagonal.png";
+import hatchesVertical from "../../assets/images/blog/moebius-shaders/hatches_vertical.png";
+import hatchesHorizontal from "../../assets/images/blog/moebius-shaders/hatches_horizontal.png";
+import hatchesCombined from "../../assets/images/blog/moebius-shaders/hatches.png";
+import sgHatching from "../../assets/images/blog/moebius-shaders/sg_hatching.png";
 
 {/* DRAFT NOTES: first full draft. Lines marked CHECK are my reading of the Unity project, to confirm in the graphs. Lines marked IMAGE are placeholders for captures or diagrams. */}
 
@@ -34,7 +40,28 @@ That way the shader reads the three layers with a single texture sample, since a
 Blending pre-drawn hatch layers according to the tone of a surface is an old idea in non-photorealistic rendering:
 [Praun et al.](https://hhoppe.com/proj/hatching/) call these layers tonal art maps.
 
-{/* IMAGE: hatch texture visualized per channel, R, G and B shown separately, then combined (the combined version is T_HatchesTileable.png in the Unity project) */}
+<div class="channel-row">
+    <figure>
+        <Image src={hatchesDiagonal} alt="Diagonal hatch lines, stored in the red channel" />
+        <figcaption>R</figcaption>
+    </figure>
+    <figure>
+        <Image src={hatchesVertical} alt="Vertical hatch lines, stored in the green channel" />
+        <figcaption>G</figcaption>
+    </figure>
+    <figure>
+        <Image src={hatchesHorizontal} alt="Horizontal hatch lines, stored in the blue channel" />
+        <figcaption>B</figcaption>
+    </figure>
+    <span class="channel-row__equals" aria-hidden="true">=</span>
+    <figure>
+        <Image src={hatchesCombined} alt="The three hatch directions packed into one RGB texture, which looks like a colorful grid" />
+        <figcaption>RGB</figcaption>
+    </figure>
+</div>
+
+Each drawing fills one channel: the channel is at full value everywhere except under the strokes, where it drops to zero.
+Packed together, the three become the colorful texture on the right. It looks odd, but the shader never displays it, it only reads the channels one by one.
 
 The texture is read with the screen position as UV, multiplied by a `HatchScale` property to control how dense the lines are.
 So the lines are attached to the screen, not to the objects.
@@ -57,7 +84,7 @@ Which direction should come first? How far apart should the thresholds be?
 I tried several combinations, and none of them looked perfect.
 I kept the one that bothered me the least.
 
-{/* IMAGE: shader graph screenshot of SG_Hatching */}
+<Image src={sgHatching} alt="Shader Graph of the hatching: the texture is sampled with the screen position, each channel is inverted, thresholded and merged with Maximum nodes" />
 
 {/* IMAGE: hatching result on a simple object, with the lit zone, the shadow zone and the cross-hatch zone clearly visible */}
 
