@@ -41,10 +41,10 @@ export const sableImages = Object.values(_sableModules).map((m) => m.default);
 
 ## Inspirations and goals
 
-Jean Giraud worked in science fiction, fantasy, and western comics under the name Moebius.
-His graphic style was specific enough that other artists named him directly:
+Jean Giraud worked in science fiction, fantasy and western comics under the name Moebius.
+His graphic style was quite recognizable. Specific enough that other artists named him directly:
 Otomo cited him as a reference for Akira,
-and his concept work shaped the aesthetics of Alien, Tron, and The Fifth Element.
+and his concept work inspired the aesthetics of Alien, Tron and The Fifth Element.
 His wife said his exceptional precision came from his severe myopia.
 
 <div class="image-grid">
@@ -56,13 +56,12 @@ His wife said his exceptional precision came from his severe myopia.
     ))}
 </div>
 
-In France he's something of a monument,
-which probably explains why I was slow to come to his work.
-The kind of classic you're expected to worship tends to make you resistant (at least it was for me..).
-What actually got me there was searching for desert landscape references while drawing:
-I discovered Arzak, with those wordless panoramas of alien plateaux, and the pages did the rest.
-I came back to his work again when Sable came out in 2021,
-a game by Shedworks that used his iconic graphic style as a direct visual reference.
+In France he's something of a monument, that probably explains why I took time to take an interest in his work.
+It's the kind of classic you're expected to worship, which tends to make me resistant (I'm a bit stubborn..).
+What actually got me there was searching for desert landscape references while drawing: 
+so first I discovered Arzak and its beautiful alien-like panoramas.
+Then I came back to his work again when Sable came out in 2021. It's a game by Shedworks that used his 
+iconic graphic style as a direct visual reference.
 
 <div class="image-grid">
     {sableImages.map((src) => (
@@ -70,51 +69,60 @@ a game by Shedworks that used his iconic graphic style as a direct visual refere
     ))}
 </div>
 
-This project started from wanting to understand how that graphic logic actually works,
-and whether it could transfer to a real-time renderer in Unity URP.
-The result is on the [project page](/projects/moebius-shaders).
+This project started from wanting to transfer this graphic style to a real-time renderer in Unity URP.
+You can see the result on the [project page](/projects/moebius-shaders).
 
 ## Pipeline
 
-This project uses NPR (Non-Photorealistic Rendering).
-Instead of simulating physical light, the goal is graphic legibility: flat colors
-and ink-like outlines, with shadows drawn rather than computed.
-All object shaders are unlit: no light probes, no global illumination.
-Each one computes its own shading from a single directional light,
-with lit and shadow colors exposed as inspector properties.
+Since my goal is to make 3D look like 2D, I'm using NPR (Non-Photorealistic Rendering).
+Most real-time renderers try to imitate how light behaves in the real world.
+I go the other way: I don't want the render to look real, it needs to look like a drawing.
+To get Moebius's style, I rely on flat colors, ink-like outlines and hatched shadows.
 
-The pipeline has two layers.
-The first is a set of object shaders (color gradient, bubble, skydome), all unlit.
+Unity's default lit shaders aim for realism: they blend light, shadows and reflections into smooth gradients.
+So all my object shaders are unlit, meaning Unity applies no lighting to them (no light probes and no global illumination).
+That leaves the shading to me. Each shader reads the direction of a single directional light
+and uses it to blend between a lit color and a shadow color (they are both exposed as inspector properties).
+
+Those shaders only cover the colors, though. Hatching and outlines need to see the whole image
+(depth, normals), which an object shader can't do, so they live in a second layer.
+Therefore I need to split the pipeline in two.
+
+The first layer is the object shaders (color gradient, bubble, skydome).
 The second is a set of fullscreen post-process passes that run after the scene is rendered:
-hatching reads the depth and normal buffers to place hatch lines,
-and the outline pass reads the same buffers plus the color buffer to draw edges on top.
+hatching reads the scene color to place hatch lines according to brightness,
+and the outline pass reads the depth, normal and color buffers to draw edges on top.
 
 <figure>
     <Image src={diagram} alt="Pipeline diagram: scene rendered into depth, normal, and color G-buffers, which feed into the outline and hatching post-process passes, producing the final image" />
-    <figcaption>Simplified pipeline: the scene is rendered into three G-buffers (depth, normals, color). The outline and hatching passes read these buffers to draw edges and hatch lines on top of the scene.</figcaption>
+    <figcaption>Simplified pipeline: the scene is rendered into three G-buffers (depth, normals, color). The outline pass reads all three buffers to draw edges, while the hatching pass only needs the color to draw hatch lines. Both are drawn on top of the scene.</figcaption>
 </figure>
+
+I'll present the shaders in the order I actually built them, starting with the outlines and then the color gradient.
+Not the order of the pipeline, but it shows how the project grew.
 
 ## Outline
 
-Outlines are computed as a fullscreen post-process pass.
-The pass runs after the scene is fully rendered
-and detects edges by reading the depth, normal, and color buffers.
-No mesh modification needed: the detector works on pixels, not geometry.
+Outlines are a fullscreen post-process pass.
+It runs after the scene is fully rendered, and detects edges by reading the depth, normal and color buffers.
 
 The starting point was a [tutorial by Digvijaysinh Gohil](https://www.youtube.com/watch?v=nc3a3THBFrg)
-covering two detection methods: depth-based and normal-based.
+covering two well known detection methods: depth-based and normal-based.
 The two HLSL snippets below are adapted from it.
 
 ### Depth-based detection
 
-The depth buffer stores, for each pixel, how far the camera is from the nearest surface.
-At a silhouette or a hard geometric crease, this value jumps sharply between neighboring pixels.
-A gradient filter makes those discontinuities visible.
+For each pixel, the depth buffer stores how far the nearest surface is from the camera.
+At the edge of an object two neighboring pixels can have very different values
+(say 2 meters on the object, 10 meters on the wall behind it).
+A gradient filter looks for these big differences: it compares the depths around a pixel
+and measures how fast they change. So a high value means an edge.
 
 The filter used is the Scharr operator, a 3×3 convolution applied to the depth buffer.
 Scharr is a variant of the [Sobel operator](https://en.wikipedia.org/wiki/Sobel_operator):
-it uses coefficients 3 and 10 instead of Sobel's 1 and 2,
-which produces a more isotropic gradient, responding more uniformly to edges at all orientations.
+it uses coefficients 3 and 10 instead of Sobel's 1 and 2.
+As a result, it reacts more evenly to edges whatever their orientation is (horizontal, vertical or diagonal).
+This is called isotropy.
 
 <MathRow
     a="G_x = \begin{bmatrix} -3 & 0 & +3 \\ -10 & 0 & +10 \\ -3 & 0 & +3 \end{bmatrix} * I"
@@ -125,10 +133,10 @@ $$
 |G| = \sqrt{G_x^2 + G_y^2}
 $$
 
-A pixel becomes an edge if $|G|$ exceeds a threshold.
+$|G|$ measures how strong the depth change is. A pixel becomes an edge if it exceeds a threshold.
 
-The code below visualizes this directly as grayscale, brighter means closer.
-In Unity this buffer already exists, no raymarching is needed.
+The demo below shows what the depth buffer looks like (closer means brighter).
+I use raymarching to fake a scene, but in Unity you don't need that, the buffer already exists.
 
 ```glsl live
 precision mediump float;
@@ -170,23 +178,16 @@ void main() {
 }
 ```
 
-The first image is the test environment built in Unity.
-All materials are unlit and assigned flat colors chosen only to distinguish the objects from each
-other: no textures, no lighting, no shading of any kind.
-The second is the depth buffer as read by the GPU: each pixel stores the distance from the camera
-to the nearest surface.
-Closer objects appear brighter, farther ones darker.
-Flat areas of the same surface blend into a continuous gradient in perspective,
-while geometry edges produce sharp jumps in value.
+The first image is the test scene built in Unity. I put flat unlit colors to tell the objects apart.
+The second is its depth buffer.
 
 <div class="image-grid">
     <Image src={captUnlitScene} alt="Test scene with placeholder unlit materials" />
     <Image src={captDepthBuffer} alt="Depth buffer of the test scene, grayscale" />
 </div>
 
-Now I want outlines. The following shader applies the Scharr filter to those depth jumps:
-it samples the 8 neighboring pixels, computes the gradient magnitude from those depth values,
-and marks a pixel as an edge if that magnitude exceeds a threshold.
+Now I have everything I need to compute the outlines. The shader below applies the Scharr filter to the depth buffer.
+A pixel that passes the threshold turns white and the others stay dark.
 
 ```glsl live
 precision mediump float;
@@ -230,9 +231,11 @@ void main() {
     float d12 = getDepth(uv + vec2(  0,  px));
     float d22 = getDepth(uv + vec2( px,  px));
 
-    // Scharr gradient
+    // Scharr gradient: depth change along each axis
     float gx = -3.0*d00 + 3.0*d20 - 10.0*d01 + 10.0*d21 - 3.0*d02 + 3.0*d22;
     float gy = -3.0*d00 - 10.0*d10 - 3.0*d20 + 3.0*d02 + 10.0*d12 + 3.0*d22;
+
+    // Combine both axes into one strength, then compare it to the threshold
     float edge = step(5.0, sqrt(gx*gx + gy*gy));
 
     float fill = dCenter < 8.0 ? 0.15 : 0.04;
@@ -242,10 +245,10 @@ void main() {
 }
 ```
 
-Here is the same logic in the actual Unity HLSL.
-The Scharr kernels are shared across all three detection methods, so they live in a struct:
+Here is the same logic in the Unity HLSL.
 
 ```hlsl
+// Shared by the depth, normal and color-based passes
 struct ScharrOperators
 {
     float3x3 x;
@@ -280,6 +283,8 @@ void DepthBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
     float gx = 0.0;
     float gy = 0.0;
 
+    float centerDepth = LinearEyeDepth(SampleSceneDepth(screenUV), _ZBufferParams);
+
     for (int i = -1; i <= 1; i++)
     {
         for (int j = -1; j <= 1; j++)
@@ -295,35 +300,40 @@ void DepthBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
         }
     }
 
-    outlines = step(0.05, sqrt(gx * gx + gy * gy));
+    // Relative gradient: the threshold no longer depends on the distance to the camera
+    float g = sqrt(gx * gx + gy * gy) / max(centerDepth, 0.001);
+
+    outlines = step(0.05, g);
 }
 ```
 
-The result in the Unity scene: the depth-based pass already captures the main silhouettes.
+Here is the depth-based pass applied to the test scene in Unity.
+It catches most silhouettes, but I ran into two problems.
 
 <Image src={captDepthbasedOutline} alt="Test scene with depth-based outlines only" />
 
-I ran into two problems here. The sphere outline is broken and jagged. On a curved surface,
-depth changes gradually near the silhouette, and the Scharr gradient falls below the threshold
-at certain angles, producing gaps. Also, the floor is almost entirely black. When the camera looks
-nearly parallel to a flat surface,
-that surface has a steep depth gradient in perspective even though it is geometrically flat,
-so the filter fires everywhere on it and fills it with false outlines.
+The sphere outline is broken and jagged, and the floor is almost entirely black.
+Both come from the same limitation: this pass only looks at distance.
+Near the edge of a sphere the depth changes gradually, so the filter sometimes misses it.
+And on a floor seen at a grazing angle the depth changes fast from pixel to pixel even though the surface is flat,
+so the filter sees edges everywhere.
 
 For now I'm fine with it, since adding normal-based detection on top will fix both.
 
 ### Normal-based detection
 
-The normal buffer stores, for each pixel, a unit vector pointing perpendicular to the surface.
+For each pixel, the normal buffer stores a unit vector pointing perpendicular to the surface.
 On a flat area, neighboring pixels have nearly identical normals: their dot product is close to 1.
-At a crease or fold, the normals suddenly diverge, and the dot product drops sharply.
-Applying the Scharr filter to these dot product values detects exactly those orientation
-discontinuities.
+At a crease, like the corner of a table, neighboring normals point in different directions
+and the dot product falls (to 0 for a right angle).
 
 <figure>
     <Image src={dotProduct} alt="Three diagrams showing two surface patches with their normal vectors: coplanar surfaces (n1·n2 = 1), a soft crease at ~45° (n1·n2 ≈ 0.5), and a right-angle crease (n1·n2 = 0)" />
-    <figcaption>The dot product between neighboring normals measures how much the surface bends. On a flat area the normals are parallel and the value stays near 1. At a crease they diverge and the value drops. A threshold on this value controls how sharp a fold must be before an outline is drawn.</figcaption>
+    <figcaption>The dot product of two neighboring normals in three cases: a flat surface (1), a soft crease (around 0.5) and a right angle (0). The threshold sets how sharp a fold must be to get an outline.</figcaption>
 </figure>
+
+Now same trick as for the depth, I apply the Scharr filter to these dot product values,
+and the creases show up as edges.
 
 ```hlsl
 void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
@@ -359,10 +369,6 @@ void NormalBasedOutlines_float(float2 screenUV, float2 px, out float outlines)
 }
 ```
 
-This catches detail that depth-based detection misses:
-interior creases, folds, and surface ridges where depth barely changes but the orientation
-shifts sharply.
-
 <Image src={captDepthnormalbasedOutline} alt="Test scene with depth and normal-based outlines combined" />
 
 That's much better! The floor is clean, the sphere has a smooth continuous outline,
@@ -375,17 +381,17 @@ Both methods work on solid geometry. But what happens when a transparent object 
     <figcaption>where did the outlines go?</figcaption>
 </figure>
 
-I realized that transparent geometry doesn't write to the depth or normal buffers,
-so both filters see nothing where the object should be.
-This means that glass, bubbles, or any surface that lets light through will simply never get outlines.
+I realized that transparent objects don't write to the depth or normal buffers,
+so both filters see nothing there.
+Transparent objects (glass, water) never get outlines.
+I could have done without them, but I wanted bubbles.
 
 ### Color-based detection
 
 The fix is to read from the color buffer instead.
-Transparent objects do render to color, even if they skip depth and normals.
-This third method samples four neighbors (left, right, up, down)
-and measures luminance contrast across them.
-A `smoothstep` replaces the hard `step`, which softens the outline boundary and reduces aliasing.
+Even if they skip depth and normals, transparent objects do render to color.
+This third method looks at the four neighbors (left, right, up, down) and turns each color
+into a single brightness value (its luminance). Where the brightest and darkest neighbors differ a lot, there is an edge.
 
 ```hlsl
 float SG_Luma(float3 c)
@@ -410,6 +416,7 @@ void ColorBasedOutlinesFromSamples_float(
     // Local luminance contrast, amplified before thresholding
     float e = (lMax - lMin) * 5.0;
 
+    // smoothstep fades the outline in instead of a hard on/off step, which avoids jagged edges (aliasing)
     outlines = smoothstep(threshold, threshold * 2.0, e);
 }
 ```
@@ -418,17 +425,17 @@ void ColorBasedOutlinesFromSamples_float(
 
 All three passes combined, the bubble finally gets its outline.
 
-### Resolution awareness
+### Outline thickness and screen resolution
 
-The outline pass samples neighbors at a UV offset of `OutlinesThickness / screen_resolution`.
-This matters because UV space is resolution-independent:
-the same offset covers twice as many physical pixels at 4K as at 1080p.
-Dividing by resolution ensures a thickness of 1.0 always means exactly one pixel on screen,
-whatever the rendering resolution.
+I want the thickness of these outlines to be a fixed number of pixels whatever the screen resolution.
+But the shader moves around the screen in fractions of its width and height (from 0 to 1),
+and a pixel is a smaller fraction at 4K than at 1080p.
+A fixed offset would then reach twice as many pixels at 4K. That would make the outline twice as thick!
+This is an easy fix: I simply divide the thickness by the screen resolution. Now 1.0 always means one pixel.
 
 <figure>
-    <Image src={offsetCorrection} alt="Two side-by-side diagrams comparing a raw UV offset vs a normalized offset at 1080p and 4K: the raw offset jumps two pixels at 4K, while the normalized offset always jumps exactly one pixel regardless of resolution" />
-    <figcaption>A raw UV offset covers more pixels at higher resolutions. Dividing by the screen resolution normalizes it so a thickness of 1.0 always maps to exactly one pixel, at any resolution.</figcaption>
+    <Image src={offsetCorrection} alt="Two side-by-side diagrams comparing a raw offset vs a normalized offset at 1080p and 4K: the raw offset jumps two pixels at 4K, while the normalized offset always jumps exactly one pixel regardless of resolution" />
+    <figcaption>The offset is the distance to the neighbor the filter reads. A raw offset covers more pixels at higher resolutions. The normalized offset always covers exactly one pixel.</figcaption>
 </figure>
 
 ### Limitations
